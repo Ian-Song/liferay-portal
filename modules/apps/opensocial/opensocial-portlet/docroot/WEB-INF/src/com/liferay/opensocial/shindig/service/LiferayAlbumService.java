@@ -213,9 +213,8 @@ public class LiferayAlbumService implements AlbumService {
 
 		long albumIdLong = GetterUtil.getLong(albumId);
 
-		Folder folder = DLAppServiceUtil.getFolder(albumIdLong);
-
-		return toAlbum(folder, fields, securityToken);
+		return toAlbum(
+			DLAppServiceUtil.getFolder(albumIdLong), fields, securityToken);
 	}
 
 	protected RestfulCollection<Album> doGetAlbums(
@@ -274,7 +273,7 @@ public class LiferayAlbumService implements AlbumService {
 			}
 		}
 
-		return new RestfulCollection<Album>(
+		return new RestfulCollection<>(
 			albums, collectionOptions.getFirst(), albums.size(),
 			collectionOptions.getMax());
 	}
@@ -296,7 +295,7 @@ public class LiferayAlbumService implements AlbumService {
 			albums.add(album);
 		}
 
-		return new RestfulCollection<Album>(
+		return new RestfulCollection<>(
 			albums, collectionOptions.getFirst(), albums.size(),
 			collectionOptions.getMax());
 	}

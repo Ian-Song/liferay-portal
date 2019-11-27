@@ -36,7 +36,7 @@ public class JQTFastStart {
 	public static void convert(File inputFile, File outputFile)
 		throws IOException {
 
-		_instance.doConvert(inputFile, outputFile);
+		_jqtFastStart.doConvert(inputFile, outputFile);
 	}
 
 	protected void doConvert(File inputFile, File outputFile)
@@ -53,9 +53,9 @@ public class JQTFastStart {
 			Atom atom = null;
 			Atom ftypAtom = null;
 
+			boolean fastStart = false;
 			boolean ftypFound = false;
 			boolean mdatFound = false;
-			boolean isFastStart = false;
 
 			while (randomAccessInputFile.getFilePointer() <
 						randomAccessInputFile.length()) {
@@ -68,7 +68,7 @@ public class JQTFastStart {
 				}
 
 				if (ftypFound && !mdatFound && atom.isMOOV()) {
-					isFastStart = true;
+					fastStart = true;
 
 					break;
 				}
@@ -90,7 +90,7 @@ public class JQTFastStart {
 				}
 			}
 
-			if (isFastStart) {
+			if (fastStart) {
 				if (_log.isInfoEnabled()) {
 					_log.info("The movie is already a fast start MP4");
 				}
@@ -169,7 +169,9 @@ public class JQTFastStart {
 			throw new IOException("Output file alread exists " + outputFile);
 		}
 
-		if (inputFile.getAbsolutePath().equals(outputFile.getAbsolutePath())) {
+		String inputFileAbsolutePath = inputFile.getAbsolutePath();
+
+		if (inputFileAbsolutePath.equals(outputFile.getAbsolutePath())) {
 			throw new IOException(
 				"Input file and output file cannot be the same " + inputFile);
 		}
@@ -177,6 +179,6 @@ public class JQTFastStart {
 
 	private static final Log _log = LogFactoryUtil.getLog(JQTFastStart.class);
 
-	private static final JQTFastStart _instance = new JQTFastStart();
+	private static final JQTFastStart _jqtFastStart = new JQTFastStart();
 
 }

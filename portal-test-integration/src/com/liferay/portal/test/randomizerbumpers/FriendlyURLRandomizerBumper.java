@@ -14,15 +14,18 @@
 
 package com.liferay.portal.test.randomizerbumpers;
 
+import com.liferay.petra.string.CharPool;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.exception.LayoutFriendlyURLException;
 import com.liferay.portal.kernel.test.randomizerbumpers.RandomizerBumper;
-import com.liferay.portal.kernel.util.CharPool;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.model.impl.LayoutImpl;
 
 /**
  * @author Shuyang Zhou
+ * @deprecated As of Athanasius (7.3.x), replaced by {@link
+ *			 com.liferay.layout.test.util.LayoutFriendlyURLRandomizerBumper}
  */
+@Deprecated
 public class FriendlyURLRandomizerBumper implements RandomizerBumper<String> {
 
 	public static final FriendlyURLRandomizerBumper INSTANCE =

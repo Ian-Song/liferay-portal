@@ -24,11 +24,16 @@ if (rowChecker != null) {
 }
 %>
 
-<c:if test="<%= resultRows.isEmpty() && (emptyResultsMessage != null) %>">
-	<div class="main-content-body" id="<%= namespace + id %>EmptyResultsMessage">
-		<liferay-ui:empty-result-message compact="<%= compactEmptyResultsMessage %>" cssClass="<%= emptyResultsMessageCssClass %>" message="<%= emptyResultsMessage %>" search="<%= searchContainer.isSearch() %>" />
+<c:if test="<%= emptyResultsMessage != null %>">
+	<div class="<%= resultRows.isEmpty() ? StringPool.BLANK : "hide" %> main-content-body" id="<%= namespace + id %>EmptyResultsMessage">
+		<liferay-ui:empty-result-message
+			compact="<%= compactEmptyResultsMessage %>"
+			cssClass="<%= emptyResultsMessageCssClass %>"
+			message="<%= emptyResultsMessage %>"
+			search="<%= searchContainer.isSearch() %>"
+		/>
 	</div>
 </c:if>
 
-<div class="<%= resultRows.isEmpty() ? "hide" : StringPool.BLANK %> <%= searchContainer.getCssClass() %> lfr-search-container-wrapper <%= displayStyle.equals(SearchIteratorTag.DEFAULT_DISPLAY_STYLE) ? StringPool.BLANK : "main-content-body" %>">
+<div class="<%= resultRows.isEmpty() ? "hide" : StringPool.BLANK %> <%= searchContainer.getCssClass() %> lfr-search-container-wrapper <%= displayStyle.equals(SearchIteratorTag.DEFAULT_DISPLAY_STYLE) ? StringPool.BLANK : "main-content-body" %> <%= fixedHeader ? "lfr-search-container-fixed-first-column" : StringPool.BLANK %>">
 	<div id="<%= namespace + id %>SearchContainer">

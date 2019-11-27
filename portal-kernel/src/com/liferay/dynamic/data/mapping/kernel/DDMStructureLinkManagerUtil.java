@@ -14,17 +14,14 @@
 
 package com.liferay.dynamic.data.mapping.kernel;
 
-import aQute.bnd.annotation.ProviderType;
-
 import com.liferay.portal.kernel.exception.PortalException;
-import com.liferay.portal.kernel.util.ProxyFactory;
+import com.liferay.portal.kernel.util.ServiceProxyFactory;
 
 import java.util.List;
 
 /**
  * @author Rafael Praxedes
  */
-@ProviderType
 public class DDMStructureLinkManagerUtil {
 
 	public static DDMStructureLink addStructureLink(
@@ -58,7 +55,9 @@ public class DDMStructureLinkManagerUtil {
 		return _ddmStructureLinkManager.getStructureLinks(classNameId, classPK);
 	}
 
-	private static final DDMStructureLinkManager _ddmStructureLinkManager =
-		ProxyFactory.newServiceTrackedInstance(DDMStructureLinkManager.class);
+	private static volatile DDMStructureLinkManager _ddmStructureLinkManager =
+		ServiceProxyFactory.newServiceTrackedInstance(
+			DDMStructureLinkManager.class, DDMStructureLinkManagerUtil.class,
+			"_ddmStructureLinkManager", false);
 
 }

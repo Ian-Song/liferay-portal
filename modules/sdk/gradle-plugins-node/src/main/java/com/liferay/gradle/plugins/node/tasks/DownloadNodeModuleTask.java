@@ -14,7 +14,7 @@
 
 package com.liferay.gradle.plugins.node.tasks;
 
-import com.liferay.gradle.plugins.node.util.GradleUtil;
+import com.liferay.gradle.plugins.node.internal.util.GradleUtil;
 
 import java.io.File;
 
@@ -31,7 +31,7 @@ import org.gradle.api.tasks.OutputDirectory;
 /**
  * @author Andrea Di Giorgi
  */
-public class DownloadNodeModuleTask extends ExecuteNpmTask {
+public class DownloadNodeModuleTask extends ExecutePackageManagerTask {
 
 	public DownloadNodeModuleTask() {
 		onlyIf(
@@ -40,19 +40,19 @@ public class DownloadNodeModuleTask extends ExecuteNpmTask {
 				@Override
 				public boolean isSatisfiedBy(Task task) {
 					try {
-						File packageJsonFile = new File(
+						File packageJSONFile = new File(
 							getModuleDir(), "package.json");
 
-						if (!packageJsonFile.exists()) {
+						if (!packageJSONFile.exists()) {
 							return true;
 						}
 
-						String packageJson = new String(
-							Files.readAllBytes(packageJsonFile.toPath()));
+						String packageJSON = new String(
+							Files.readAllBytes(packageJSONFile.toPath()));
 
 						String version = getModuleVersion();
 
-						if (packageJson.contains(
+						if (packageJSON.contains(
 								"\"version\": \"" + version + "\"")) {
 
 							return false;
@@ -70,9 +70,7 @@ public class DownloadNodeModuleTask extends ExecuteNpmTask {
 
 	@OutputDirectory
 	public File getModuleDir() {
-		File nodeModulesDir = new File(getWorkingDir(), "node_modules");
-
-		return new File(nodeModulesDir, getModuleName());
+		return new File(getNodeModulesDir(), getModuleName());
 	}
 
 	@Input
@@ -97,7 +95,13 @@ public class DownloadNodeModuleTask extends ExecuteNpmTask {
 	protected List<String> getCompleteArgs() {
 		List<String> completeArgs = super.getCompleteArgs();
 
-		completeArgs.add("install");
+		if (isUseNpm()) {
+			completeArgs.add("install");
+		}
+		else {
+			completeArgs.add("add");
+		}
+
 		completeArgs.add(getModuleName() + "@" + getModuleVersion());
 
 		return completeArgs;

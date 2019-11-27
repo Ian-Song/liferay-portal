@@ -14,10 +14,11 @@
 
 package com.liferay.portal.bootstrap;
 
-import aQute.bnd.header.OSGiHeader;
-import aQute.bnd.header.Parameters;
-import aQute.bnd.version.Version;
-
+import com.liferay.petra.io.BigEndianCodec;
+import com.liferay.petra.reflect.ReflectionUtil;
+import com.liferay.petra.string.CharPool;
+import com.liferay.petra.string.StringBundler;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.concurrent.DefaultNoticeableFuture;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.io.unsync.UnsyncBufferedInputStream;
@@ -29,18 +30,14 @@ import com.liferay.portal.kernel.security.auth.PrincipalException;
 import com.liferay.portal.kernel.security.permission.PermissionChecker;
 import com.liferay.portal.kernel.security.permission.PermissionThreadLocal;
 import com.liferay.portal.kernel.spring.osgi.OSGiBeanProperties;
-import com.liferay.portal.kernel.util.CharPool;
 import com.liferay.portal.kernel.util.FileUtil;
 import com.liferay.portal.kernel.util.HashMapDictionary;
+import com.liferay.portal.kernel.util.NamedThreadFactory;
 import com.liferay.portal.kernel.util.Props;
 import com.liferay.portal.kernel.util.PropsKeys;
 import com.liferay.portal.kernel.util.PropsUtil;
-import com.liferay.portal.kernel.util.ReflectionUtil;
 import com.liferay.portal.kernel.util.ReleaseInfo;
 import com.liferay.portal.kernel.util.ServiceLoader;
-import com.liferay.portal.kernel.util.ServiceLoaderCondition;
-import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.SystemProperties;
 import com.liferay.portal.module.framework.ModuleFramework;
@@ -53,11 +50,22 @@ import com.liferay.registry.internal.RegistryImpl;
 import com.liferay.registry.internal.ServiceTrackerMapFactoryImpl;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLClassLoader;
 
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,22 +77,29 @@ import java.security.CodeSource;
 import java.security.ProtectionDomain;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.jar.Attributes;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
+import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -96,23 +111,26 @@ import org.osgi.framework.BundleEvent;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
 import org.osgi.framework.FrameworkEvent;
-import org.osgi.framework.FrameworkListener;
 import org.osgi.framework.ServiceRegistration;
+import org.osgi.framework.SynchronousBundleListener;
+import org.osgi.framework.Version;
 import org.osgi.framework.launch.Framework;
 import org.osgi.framework.launch.FrameworkFactory;
 import org.osgi.framework.startlevel.BundleStartLevel;
 import org.osgi.framework.startlevel.FrameworkStartLevel;
 import org.osgi.framework.wiring.BundleRevision;
+import org.osgi.framework.wiring.BundleWiring;
 import org.osgi.framework.wiring.FrameworkWiring;
-import org.osgi.util.tracker.BundleTracker;
 
 import org.springframework.beans.factory.BeanIsAbstractException;
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * @author Raymond Augé
  * @author Miguel Pastor
  * @author Kamesh Sampath
+ * @author Gregory Amerson
  */
 public class ModuleFrameworkImpl implements ModuleFramework {
 
@@ -143,18 +161,7 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 			Attributes attributes = manifest.getMainAttributes();
 
-			String bundleSymbolicNameAttributeValue = attributes.getValue(
-				Constants.BUNDLE_SYMBOLICNAME);
-
-			Parameters parameters = OSGiHeader.parseHeader(
-				bundleSymbolicNameAttributeValue);
-
-			Set<String> bundleSymbolicNameSet = parameters.keySet();
-
-			Iterator<String> bundleSymbolicNameIterator =
-				bundleSymbolicNameSet.iterator();
-
-			String bundleSymbolicName = bundleSymbolicNameIterator.next();
+			String bundleSymbolicName = _parseBundleSymbolicName(attributes);
 
 			String bundleVersionAttributeValue = attributes.getValue(
 				Constants.BUNDLE_VERSION);
@@ -163,11 +170,8 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 				bundleVersionAttributeValue);
 
 			for (Bundle bundle : bundleContext.getBundles()) {
-				Version curBundleVersion = Version.parseVersion(
-					String.valueOf(bundle.getVersion()));
-
 				if (bundleSymbolicName.equals(bundle.getSymbolicName()) &&
-					bundleVersion.equals(curBundleVersion)) {
+					bundleVersion.equals(bundle.getVersion())) {
 
 					return bundle;
 				}
@@ -236,9 +240,8 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		else if (state == Bundle.UNINSTALLED) {
 			return "uninstalled";
 		}
-		else {
-			return StringPool.BLANK;
-		}
+
+		return StringPool.BLANK;
 	}
 
 	@Override
@@ -247,24 +250,15 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 			_log.debug("Initializing the OSGi framework");
 		}
 
+		_validateModuleFrameworkBaseDirForEquinox();
+
 		_initRequiredStartupDirs();
 
-		List<ServiceLoaderCondition> serviceLoaderConditions =
-			ServiceLoader.load(ServiceLoaderCondition.class);
-
-		ServiceLoaderCondition serviceLoaderCondition =
-			serviceLoaderConditions.get(0);
-
-		if (_log.isDebugEnabled()) {
-			Class<?> clazz = serviceLoaderCondition.getClass();
-
-			_log.debug(
-				"Using conditional loading to find the OSGi framework " +
-					"factory " + clazz.getName());
-		}
+		Thread currentThread = Thread.currentThread();
 
 		List<FrameworkFactory> frameworkFactories = ServiceLoader.load(
-			FrameworkFactory.class, serviceLoaderCondition);
+			new URLClassLoader(_getClassPathURLs(), null),
+			currentThread.getContextClassLoader(), FrameworkFactory.class);
 
 		FrameworkFactory frameworkFactory = frameworkFactories.get(0);
 
@@ -320,12 +314,11 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 			_log.debug("Registering context " + context);
 		}
 
-		if ((context instanceof ApplicationContext) &&
-			PropsValues.MODULE_FRAMEWORK_REGISTER_LIFERAY_SERVICES) {
+		if (context instanceof ConfigurableApplicationContext) {
+			ConfigurableApplicationContext configurableApplicationContext =
+				(ConfigurableApplicationContext)context;
 
-			ApplicationContext applicationContext = (ApplicationContext)context;
-
-			_registerApplicationContext(applicationContext);
+			_registerApplicationContext(configurableApplicationContext);
 		}
 		else if (context instanceof ServletContext) {
 			ServletContext servletContext = (ServletContext)context;
@@ -406,9 +399,15 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 		_setUpPrerequisiteFrameworkServices(_framework.getBundleContext());
 
-		_setUpInitialBundles();
+		Bundle fileInstallBundle = _setUpInitialBundles();
 
-		_startDynamicBundles();
+		_startDynamicBundles(fileInstallBundle);
+
+		if (_log.isInfoEnabled()) {
+			_log.info(
+				"Navigate to Control Panel > Configuration > Gogo Shell and " +
+					"enter \"lb\" to see all bundles");
+		}
 
 		if (_log.isDebugEnabled()) {
 			_log.debug("Started the OSGi framework");
@@ -491,8 +490,9 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 		if (frameworkEvent.getType() == FrameworkEvent.WAIT_TIMEDOUT) {
 			_log.error(
-				"OSGi framework event " + frameworkEvent +
-					" triggered after a " + timeout + "ms timeout");
+				StringBundler.concat(
+					"OSGi framework event ", frameworkEvent,
+					" triggered after a ", timeout, "ms timeout"));
 		}
 		else if (_log.isInfoEnabled()) {
 			_log.info(frameworkEvent);
@@ -501,6 +501,10 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		RegistryUtil.setRegistry(null);
 
 		ServiceTrackerMapFactoryUtil.setServiceTrackerMapFactory(null);
+
+		if (Boolean.parseBoolean(System.getenv("LIFERAY_CLEAN_OSGI_STATE"))) {
+			_cleanOSGiStateFolder();
+		}
 	}
 
 	@Override
@@ -512,8 +516,18 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		FrameworkStartLevel frameworkStartLevel = _framework.adapt(
 			FrameworkStartLevel.class);
 
+		DefaultNoticeableFuture<FrameworkEvent> defaultNoticeableFuture =
+			new DefaultNoticeableFuture<>();
+
 		frameworkStartLevel.setStartLevel(
-			PropsValues.MODULE_FRAMEWORK_BEGINNING_START_LEVEL);
+			PropsValues.MODULE_FRAMEWORK_BEGINNING_START_LEVEL,
+			frameworkEvent -> defaultNoticeableFuture.set(frameworkEvent));
+
+		FrameworkEvent frameworkEvent = defaultNoticeableFuture.get();
+
+		if (frameworkEvent.getType() != FrameworkEvent.STARTLEVEL_CHANGED) {
+			ReflectionUtil.throwException(frameworkEvent.getThrowable());
+		}
 	}
 
 	@Override
@@ -546,11 +560,11 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 			_log.debug("Unregistering context " + context);
 		}
 
-		if (!(context instanceof ApplicationContext)) {
+		if (!(context instanceof ConfigurableApplicationContext)) {
 			return;
 		}
 
-		_unregisterApplicationContext((ApplicationContext)context);
+		_unregisterApplicationContext((ConfigurableApplicationContext)context);
 
 		if (_log.isDebugEnabled()) {
 			_log.debug("Registered context " + context);
@@ -584,6 +598,36 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		}
 	}
 
+	private static URL[] _getClassPathURLs() throws IOException {
+		File coreDir = new File(PropsValues.MODULE_FRAMEWORK_BASE_DIR, "core");
+
+		File[] files = coreDir.listFiles();
+
+		if (files == null) {
+			throw new IllegalStateException(
+				"Missing " + coreDir.getCanonicalPath());
+		}
+
+		URL[] urls = new URL[files.length];
+
+		for (int i = 0; i < urls.length; i++) {
+			URI uri = files[i].toURI();
+
+			urls[i] = uri.toURL();
+		}
+
+		return urls;
+	}
+
+	private static String _getLPKGLocation(File lpkgFile) {
+		URI uri = lpkgFile.toURI();
+
+		String uriString = uri.toString();
+
+		return StringUtil.replace(
+			uriString, CharPool.BACK_SLASH, CharPool.FORWARD_SLASH);
+	}
+
 	private Bundle _addBundle(
 			String location, InputStream inputStream, boolean checkPermission)
 		throws PortalException {
@@ -605,7 +649,15 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 			unsyncBufferedInputStream.mark(1024 * 1000);
 
-			Bundle bundle = getBundle(bundleContext, unsyncBufferedInputStream);
+			Bundle bundle = null;
+
+			if (location.contains("static=true")) {
+				bundle = _getStaticBundle(
+					bundleContext, unsyncBufferedInputStream, location);
+			}
+			else {
+				bundle = getBundle(bundleContext, unsyncBufferedInputStream);
+			}
 
 			try {
 				unsyncBufferedInputStream.reset();
@@ -631,14 +683,16 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		}
 	}
 
-	private Map<String, String> _buildFrameworkProperties(Class<?> clazz) {
+	private Map<String, String> _buildFrameworkProperties(Class<?> clazz)
+		throws URISyntaxException {
+
 		if (_log.isDebugEnabled()) {
 			_log.debug("Building OSGi framework properties");
 		}
 
-		Map<String, String> properties = new HashMap<>();
-
 		// Release
+
+		Map<String, String> properties = new HashMap<>();
 
 		properties.put(
 			Constants.BUNDLE_DESCRIPTION, ReleaseInfo.getReleaseInfo());
@@ -672,8 +726,19 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 			PropsValues.MODULE_FRAMEWORK_STATE_DIR);
 
 		properties.put("eclipse.security", null);
+		properties.put(
+			"equinox.resolver.revision.batch.size",
+			PropsValues.MODULE_FRAMEWORK_RESOLVER_REVISION_BATCH_SIZE);
 		properties.put("java.security.manager", null);
 		properties.put("org.osgi.framework.security", null);
+
+		File file = new File(PropsValues.LIFERAY_HOME);
+
+		URI uri = file.toURI();
+
+		uri = uri.normalize();
+
+		properties.put("osgi.home", uri.toString());
 
 		ProtectionDomain protectionDomain = clazz.getProtectionDomain();
 
@@ -684,7 +749,7 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		properties.put(
 			FrameworkPropsKeys.OSGI_FRAMEWORK, codeSourceURL.toExternalForm());
 
-		File frameworkFile = new File(codeSourceURL.getFile());
+		File frameworkFile = new File(codeSourceURL.toURI());
 
 		properties.put(
 			FrameworkPropsKeys.OSGI_INSTALL_AREA, frameworkFile.getParent());
@@ -694,8 +759,25 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		Properties extraProperties = PropsUtil.getProperties(
 			PropsKeys.MODULE_FRAMEWORK_PROPERTIES, true);
 
+		String extraCapabilities = extraProperties.getProperty(
+			Constants.FRAMEWORK_SYSTEMCAPABILITIES_EXTRA);
+
+		Attributes attributes = _getExtraManifestAttributes();
+
+		String provideCapability = attributes.getValue(
+			Constants.PROVIDE_CAPABILITY);
+
+		if ((extraCapabilities != null) && !extraCapabilities.isEmpty()) {
+			provideCapability = provideCapability.concat(
+				",".concat(extraCapabilities));
+		}
+
+		extraProperties.setProperty(
+			Constants.FRAMEWORK_SYSTEMCAPABILITIES_EXTRA, provideCapability);
+
 		for (Map.Entry<Object, Object> entry : extraProperties.entrySet()) {
 			String key = (String)entry.getKey();
+
 			String value = (String)entry.getValue();
 
 			// We need to support an empty string and a null value distinctly.
@@ -711,20 +793,43 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 			properties.put(key, value);
 		}
 
-		String systemPackagesExtra = _getSystemPackagesExtra();
+		String systemPackagesExtra = _getSystemPackagesExtra(
+			attributes.getValue(Constants.EXPORT_PACKAGE));
 
 		properties.put(
 			Constants.FRAMEWORK_SYSTEMPACKAGES_EXTRA, systemPackagesExtra);
 
 		if (_log.isDebugEnabled()) {
-			for (Entry<String, String> entry : properties.entrySet()) {
+			for (Map.Entry<String, String> entry : properties.entrySet()) {
 				_log.debug(
-					"OSGi framework property key \"" + entry.getKey() +
-						"\" with value \"" + entry.getValue() + "\"");
+					StringBundler.concat(
+						"OSGi framework property key \"", entry.getKey(),
+						"\" with value \"", entry.getValue(), "\""));
 			}
 		}
 
 		return properties;
+	}
+
+	private long _calculateChecksum(File file) {
+		CRC32 crc32 = new CRC32();
+
+		String fileName = file.getName();
+
+		crc32.update(fileName.getBytes());
+
+		_calculateChecksum(file.lastModified(), crc32);
+		_calculateChecksum(file.length(), crc32);
+
+		return crc32.getValue();
+	}
+
+	private void _calculateChecksum(long l, CRC32 crc) {
+		for (int i = 0; i < 8; i++) {
+			crc.update((int)(l & 0xFF));
+
+			l >>= 8;
+		}
 	}
 
 	private void _checkPermission() throws PrincipalException {
@@ -740,6 +845,196 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		}
 	}
 
+	private void _cleanOSGiStateFolder() throws IOException {
+		Files.walkFileTree(
+			Paths.get(PropsValues.MODULE_FRAMEWORK_STATE_DIR),
+			new SimpleFileVisitor<Path>() {
+
+				@Override
+				public FileVisitResult postVisitDirectory(
+						Path dirPath, IOException ioe)
+					throws IOException {
+
+					String name = dirPath.toString();
+
+					if (name.contains(".cp")) {
+						Files.delete(dirPath);
+					}
+
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult visitFile(
+						Path filePath, BasicFileAttributes basicFileAttributes)
+					throws IOException {
+
+					File file = filePath.toFile();
+
+					String name = file.getName();
+
+					if (name.endsWith(".bin") || name.endsWith(".jar")) {
+						Files.delete(filePath);
+
+						return FileVisitResult.CONTINUE;
+					}
+
+					if (!name.equals("bundleFile")) {
+						return FileVisitResult.CONTINUE;
+					}
+
+					try (ZipFile zipFile = new ZipFile(file)) {
+						ZipEntry zipEntry = zipFile.getEntry(
+							"liferay-marketplace.properties");
+
+						if (zipEntry != null) {
+							return FileVisitResult.CONTINUE;
+						}
+
+						zipEntry = zipFile.getEntry(
+							"WEB-INF/liferay-plugin-package.properties");
+
+						if (zipEntry != null) {
+							return FileVisitResult.CONTINUE;
+						}
+
+						Properties properties = new Properties();
+
+						try (InputStream inputStream = zipFile.getInputStream(
+								zipFile.getEntry("META-INF/MANIFEST.MF"))) {
+
+							properties.load(inputStream);
+						}
+
+						if (properties.containsKey("Liferay-WAB-LPKG-URL")) {
+							return FileVisitResult.CONTINUE;
+						}
+					}
+
+					Files.delete(filePath);
+
+					return FileVisitResult.CONTINUE;
+				}
+
+			});
+	}
+
+	private Set<Bundle> _deployStaticBundlesFromFile(
+			File file, Set<String> overrideStaticFileNames)
+		throws IOException {
+
+		Set<Bundle> bundles = new HashSet<>();
+
+		String path = _getLPKGLocation(file);
+
+		try (ZipFile zipFile = new ZipFile(file)) {
+			Enumeration<? extends ZipEntry> enumeration = zipFile.entries();
+
+			List<ZipEntry> zipEntries = new ArrayList<>();
+
+			while (enumeration.hasMoreElements()) {
+				ZipEntry zipEntry = enumeration.nextElement();
+
+				String name = StringUtil.toLowerCase(zipEntry.getName());
+
+				if (!name.endsWith(".jar")) {
+					continue;
+				}
+
+				if (!overrideStaticFileNames.isEmpty()) {
+					String fileName = _extractFileName(name);
+
+					fileName = fileName.concat(".jar");
+
+					if (overrideStaticFileNames.contains(fileName)) {
+						if (_log.isInfoEnabled()) {
+							StringBundler sb = new StringBundler(7);
+
+							sb.append(zipFile.getName());
+							sb.append(StringPool.COLON);
+							sb.append(zipEntry);
+							sb.append(" is overridden by ");
+							sb.append(PropsValues.MODULE_FRAMEWORK_BASE_DIR);
+							sb.append("/static/");
+							sb.append(fileName);
+
+							_log.info(sb.toString());
+						}
+
+						continue;
+					}
+				}
+
+				zipEntries.add(zipEntry);
+			}
+
+			Collections.sort(
+				zipEntries,
+				new Comparator<ZipEntry>() {
+
+					@Override
+					public int compare(ZipEntry zipEntry1, ZipEntry zipEntry2) {
+						String name1 = zipEntry1.getName();
+						String name2 = zipEntry2.getName();
+
+						return name1.compareTo(name2);
+					}
+
+				});
+
+			for (ZipEntry zipEntry : zipEntries) {
+				String zipEntryName = zipEntry.getName();
+
+				String location = StringBundler.concat(
+					zipEntryName, "?lpkgPath=", path,
+					"&protocol=lpkg&static=true");
+
+				try (InputStream inputStream = zipFile.getInputStream(
+						zipEntry)) {
+
+					Bundle bundle = _installInitialBundle(
+						location, inputStream);
+
+					if (bundle != null) {
+						bundles.add(bundle);
+					}
+				}
+			}
+		}
+
+		return bundles;
+	}
+
+	private String _extractFileName(String string) {
+		int endIndex = string.indexOf(CharPool.DASH);
+
+		if (endIndex == -1) {
+			endIndex = string.indexOf(CharPool.QUESTION);
+
+			if (endIndex == -1) {
+				endIndex = string.length();
+			}
+		}
+
+		int beginIndex = string.lastIndexOf(CharPool.SLASH, endIndex) + 1;
+
+		return string.substring(beginIndex, endIndex);
+	}
+
+	private Attributes _getExtraManifestAttributes() {
+		try (InputStream inputStream =
+				ModuleFrameworkImpl.class.getResourceAsStream(
+					"/META-INF/system.packages.extra.mf")) {
+
+			Manifest manifest = new Manifest(inputStream);
+
+			return manifest.getMainAttributes();
+		}
+		catch (IOException ioe) {
+			return ReflectionUtil.throwException(ioe);
+		}
+	}
+
 	private String _getFelixFileInstallDir() {
 		return PropsValues.MODULE_FRAMEWORK_PORTAL_DIR + StringPool.COMMA +
 			StringUtil.merge(PropsValues.MODULE_FRAMEWORK_AUTO_DEPLOY_DIRS);
@@ -748,14 +1043,23 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 	private Dictionary<String, Object> _getProperties(
 		Object bean, String beanName) {
 
+		Class<?> clazz = bean.getClass();
+
+		OSGiBeanProperties osgiBeanProperties = clazz.getAnnotation(
+			OSGiBeanProperties.class);
+
+		return _getProperties(osgiBeanProperties, beanName);
+	}
+
+	private Dictionary<String, Object> _getProperties(
+		OSGiBeanProperties osgiBeanProperties, String beanName) {
+
 		HashMapDictionary<String, Object> properties =
 			new HashMapDictionary<>();
 
-		Map<String, Object> osgiBeanProperties =
-			OSGiBeanProperties.Convert.fromObject(bean);
-
 		if (osgiBeanProperties != null) {
-			properties.putAll(osgiBeanProperties);
+			properties.putAll(
+				OSGiBeanProperties.Convert.toMap(osgiBeanProperties));
 		}
 
 		properties.put(ServicePropsKeys.BEAN_ID, beanName);
@@ -765,7 +1069,53 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		return properties;
 	}
 
-	private String _getSystemPackagesExtra() {
+	private Bundle _getStaticBundle(
+			BundleContext bundleContext, InputStream inputStream,
+			String location)
+		throws PortalException {
+
+		try {
+			JarInputStream jarInputStream = new JarInputStream(inputStream);
+
+			Manifest manifest = jarInputStream.getManifest();
+
+			if (manifest == null) {
+				throw new IllegalStateException(
+					"No manifest found at location " + location);
+			}
+
+			Attributes attributes = manifest.getMainAttributes();
+
+			String bundleSymbolicName = _parseBundleSymbolicName(attributes);
+
+			String bundleVersionAttributeValue = attributes.getValue(
+				Constants.BUNDLE_VERSION);
+
+			Version bundleVersion = Version.parseVersion(
+				bundleVersionAttributeValue);
+
+			for (Bundle bundle : bundleContext.getBundles()) {
+				if (bundleSymbolicName.equals(bundle.getSymbolicName())) {
+					if (bundleVersion.equals(bundle.getVersion())) {
+						return bundle;
+					}
+
+					bundle.uninstall();
+
+					_refreshBundles(Collections.singletonList(bundle));
+
+					return null;
+				}
+			}
+
+			return null;
+		}
+		catch (Exception e) {
+			throw new PortalException(e);
+		}
+	}
+
+	private String _getSystemPackagesExtra(String exportedPackages) {
 		String[] systemPackagesExtra =
 			PropsValues.MODULE_FRAMEWORK_SYSTEM_PACKAGES_EXTRA;
 
@@ -776,62 +1126,19 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 			sb.append(StringPool.COMMA);
 		}
 
-		Manifest extraPackagesManifest = null;
-
-		Class<?> clazz = getClass();
-
-		InputStream inputStream = clazz.getResourceAsStream(
-			"/META-INF/system.packages.extra.mf");
-
-		try {
-			extraPackagesManifest = new Manifest(inputStream);
-		}
-		catch (IOException ioe) {
-			ReflectionUtil.throwException(ioe);
-		}
-
-		Attributes attributes = extraPackagesManifest.getMainAttributes();
-
-		String exportedPackages = attributes.getValue("Export-Package");
-
 		sb.append(exportedPackages);
 
 		if (_log.isDebugEnabled()) {
 			String s = sb.toString();
 
-			s = s.replace(",", "\n");
+			s = StringUtil.replace(s, ',', '\n');
 
 			_log.debug(
 				"The portal's system bundle is exporting the following " +
-					"packages:\n" +s);
+					"packages:\n" + s);
 		}
 
 		return sb.toString();
-	}
-
-	private boolean _hasLazyActivationPolicy(Bundle bundle) {
-		Dictionary<String, String> headers = bundle.getHeaders();
-
-		String fragmentHost = headers.get(Constants.FRAGMENT_HOST);
-
-		if (fragmentHost != null) {
-			return false;
-		}
-
-		String activationPolicy = headers.get(
-			Constants.BUNDLE_ACTIVATIONPOLICY);
-
-		if (activationPolicy == null) {
-			return false;
-		}
-
-		Parameters parameters = OSGiHeader.parseHeader(activationPolicy);
-
-		if (parameters.containsKey(Constants.ACTIVATION_LAZY)) {
-			return true;
-		}
-
-		return false;
 	}
 
 	private void _initRequiredStartupDirs() {
@@ -846,6 +1153,104 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		}
 
 		FileUtil.mkdirs(PropsValues.MODULE_FRAMEWORK_BASE_DIR + "/static");
+		FileUtil.mkdirs(
+			PropsValues.MODULE_FRAMEWORK_MARKETPLACE_DIR + "/override");
+	}
+
+	private void _installBundlesFromDir(
+			String dirPath, Map<String, Long> checksums)
+		throws IOException {
+
+		BundleContext bundleContext = _framework.getBundleContext();
+
+		File dir = new File(dirPath);
+
+		for (File file :
+				dir.listFiles((folder, name) -> name.endsWith(".jar"))) {
+
+			URI uri = file.toURI();
+
+			uri = uri.normalize();
+
+			String location = uri.toString();
+
+			if (bundleContext.getBundle(location) != null) {
+				continue;
+			}
+
+			try (InputStream inputStream = new FileInputStream(file)) {
+				Bundle bundle = bundleContext.installBundle(
+					location, inputStream);
+
+				checksums.put(
+					bundle.getBundleId() + _CHECKSUM_SUFFIX,
+					_calculateChecksum(file));
+
+				if ((bundle.getState() != Bundle.INSTALLED) &&
+					(bundle.getState() != Bundle.RESOLVED)) {
+
+					// Defense for bundle blacklist auto uninstall
+
+					continue;
+				}
+
+				BundleStartLevel bundleStartLevel = bundle.adapt(
+					BundleStartLevel.class);
+
+				bundleStartLevel.setStartLevel(
+					PropsValues.MODULE_FRAMEWORK_DYNAMIC_INSTALL_START_LEVEL);
+
+				if (!_isFragmentBundle(bundle)) {
+					bundle.start();
+				}
+			}
+			catch (BundleException be) {
+				_log.error("Unable to install bundle at " + location, be);
+			}
+		}
+	}
+
+	private void _installConfigs(ClassLoader classLoader) throws Exception {
+		BundleContext bundleContext = _framework.getBundleContext();
+
+		Class<?> configInstallerClass = classLoader.loadClass(
+			"org.apache.felix.fileinstall.internal.ConfigInstaller");
+
+		Method method = configInstallerClass.getDeclaredMethod(
+			"install", File.class);
+
+		Constructor<?> constructor =
+			configInstallerClass.getDeclaredConstructor(
+				BundleContext.class,
+				classLoader.loadClass("org.osgi.service.cm.ConfigurationAdmin"),
+				classLoader.loadClass(
+					"org.apache.felix.fileinstall.internal.FileInstall"));
+
+		constructor.setAccessible(true);
+
+		Object configInstaller = constructor.newInstance(
+			bundleContext,
+			bundleContext.getService(
+				bundleContext.getServiceReference(
+					"org.osgi.service.cm.ConfigurationAdmin")),
+			null);
+
+		File dir = new File(PropsValues.MODULE_FRAMEWORK_CONFIGS_DIR);
+
+		for (File file : dir.listFiles()) {
+			method.invoke(configInstaller, file);
+		}
+	}
+
+	private Map<String, Long> _installDynamicBundles() throws IOException {
+		Map<String, Long> checksums = new HashMap<>();
+
+		_installBundlesFromDir(
+			PropsValues.MODULE_FRAMEWORK_PORTAL_DIR, checksums);
+		_installBundlesFromDir(
+			PropsValues.MODULE_FRAMEWORK_MODULES_DIR, checksums);
+
+		return checksums;
 	}
 
 	private Bundle _installInitialBundle(
@@ -853,11 +1258,10 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 		try {
 			if (_log.isDebugEnabled()) {
-				_log.debug("Adding initial bundle " + location.toString());
+				_log.debug("Adding initial bundle " + location);
 			}
 
-			Bundle bundle = _addBundle(
-				"reference:" + location, inputStream, false);
+			Bundle bundle = _addBundle(location, inputStream, false);
 
 			if (_log.isDebugEnabled()) {
 				_log.debug("Added initial bundle " + bundle);
@@ -869,8 +1273,9 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 			if (_log.isDebugEnabled()) {
 				_log.debug(
-					"Setting bundle " + bundle + " at start level " +
-						PropsValues.MODULE_FRAMEWORK_BEGINNING_START_LEVEL);
+					StringBundler.concat(
+						"Setting bundle ", bundle, " at start level ",
+						PropsValues.MODULE_FRAMEWORK_BEGINNING_START_LEVEL));
 			}
 
 			BundleStartLevel bundleStartLevel = bundle.adapt(
@@ -878,16 +1283,6 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 			bundleStartLevel.setStartLevel(
 				PropsValues.MODULE_FRAMEWORK_BEGINNING_START_LEVEL);
-
-			if (_log.isDebugEnabled()) {
-				_log.debug("Starting initial bundle " + bundle);
-			}
-
-			bundle.start();
-
-			if (_log.isDebugEnabled()) {
-				_log.debug("Started bundle " + bundle);
-			}
 
 			return bundle;
 		}
@@ -908,25 +1303,62 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		return true;
 	}
 
-	private boolean _isIgnoredInterface(String interfaceClassName) {
-		for (String ignoredClass :
-				PropsValues.MODULE_FRAMEWORK_SERVICES_IGNORED_INTERFACES) {
+	private boolean _isValid(String pathName) {
+		int index = pathName.lastIndexOf(CharPool.DASH);
 
-			if (!ignoredClass.startsWith(StringPool.EXCLAMATION) &&
-				(ignoredClass.equals(interfaceClassName) ||
-				 (ignoredClass.endsWith(StringPool.STAR) &&
-				  interfaceClassName.startsWith(
-					  ignoredClass.substring(0, ignoredClass.length() - 1))))) {
-
-				return true;
-			}
+		if (index == -1) {
+			return true;
 		}
 
-		return false;
+		String version = pathName.substring(index + 1, pathName.length() - 4);
+
+		int count = StringUtil.count(version, CharPool.PERIOD);
+
+		if ((count == 2) || (count == 3)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	private String _parseBundleSymbolicName(Attributes attributes) {
+		String bundleSymbolicName = attributes.getValue(
+			Constants.BUNDLE_SYMBOLICNAME);
+
+		int index = bundleSymbolicName.indexOf(CharPool.SEMICOLON);
+
+		if (index != -1) {
+			bundleSymbolicName = bundleSymbolicName.substring(0, index);
+		}
+
+		return bundleSymbolicName;
+	}
+
+	private void _refreshBundles(List<Bundle> refreshBundles) {
+		FrameworkWiring frameworkWiring = _framework.adapt(
+			FrameworkWiring.class);
+
+		DefaultNoticeableFuture<FrameworkEvent> defaultNoticeableFuture =
+			new DefaultNoticeableFuture<>();
+
+		frameworkWiring.refreshBundles(
+			refreshBundles,
+			frameworkEvent -> defaultNoticeableFuture.set(frameworkEvent));
+
+		try {
+			FrameworkEvent frameworkEvent = defaultNoticeableFuture.get();
+
+			if (frameworkEvent.getType() != FrameworkEvent.PACKAGES_REFRESHED) {
+				throw frameworkEvent.getThrowable();
+			}
+		}
+		catch (Throwable t) {
+			ReflectionUtil.throwException(t);
+		}
 	}
 
 	private void _registerApplicationContext(
-		ApplicationContext applicationContext) {
+		ConfigurableApplicationContext configurableApplicationContext) {
 
 		if (_log.isDebugEnabled()) {
 			_log.debug("Register application context");
@@ -934,47 +1366,68 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 		List<ServiceRegistration<?>> serviceRegistrations = new ArrayList<>();
 
-		for (String beanName : applicationContext.getBeanDefinitionNames()) {
-			Object bean = null;
+		ConfigurableListableBeanFactory configurableListableBeanFactory =
+			configurableApplicationContext.getBeanFactory();
 
-			try {
-				bean = applicationContext.getBean(beanName);
-			}
-			catch (BeanIsAbstractException biae) {
-			}
-			catch (Exception e) {
-				_log.error(e, e);
-			}
+		Iterator<String> iterator =
+			configurableListableBeanFactory.getBeanNamesIterator();
 
-			if (bean != null) {
-				ServiceRegistration<?> serviceRegistration = _registerService(
-					_framework.getBundleContext(), beanName, bean);
+		iterator.forEachRemaining(
+			beanName -> {
+				Object bean = null;
 
-				if (serviceRegistration != null) {
-					serviceRegistrations.add(serviceRegistration);
+				try {
+					bean = configurableApplicationContext.getBean(beanName);
 				}
+				catch (BeanIsAbstractException biae) {
+				}
+				catch (Exception e) {
+					_log.error(e, e);
+				}
+
+				if (bean != null) {
+					ServiceRegistration<?> serviceRegistration =
+						_registerService(
+							_framework.getBundleContext(), beanName, bean);
+
+					if (serviceRegistration != null) {
+						serviceRegistrations.add(serviceRegistration);
+					}
+				}
+			});
+
+		_springContextServices.put(
+			configurableApplicationContext, serviceRegistrations);
+	}
+
+	private void _registerDynamicBundles(
+			Map<String, Long> checksums, BundleContext bundleContext)
+		throws Exception {
+
+		byte[] data = new byte[8];
+
+		for (Map.Entry<String, Long> entry : checksums.entrySet()) {
+			File file = bundleContext.getDataFile(entry.getKey());
+
+			try (OutputStream outputStream = new FileOutputStream(file)) {
+				BigEndianCodec.putLong(data, 0, entry.getValue());
+
+				outputStream.write(data);
 			}
 		}
-
-		_springContextServices.put(applicationContext, serviceRegistrations);
 	}
 
 	private ServiceRegistration<?> _registerService(
 		BundleContext bundleContext, String beanName, Object bean) {
 
-		Set<Class<?>> interfaces = OSGiBeanProperties.Service.interfaces(bean);
+		Class<?> clazz = bean.getClass();
 
-		interfaces.add(bean.getClass());
+		OSGiBeanProperties osgiBeanProperties = clazz.getAnnotation(
+			OSGiBeanProperties.class);
 
-		List<String> names = new ArrayList<>(interfaces.size());
-
-		for (Class<?> interfaceClass : interfaces) {
-			String interfaceClassName = interfaceClass.getName();
-
-			if (!_isIgnoredInterface(interfaceClassName)) {
-				names.add(interfaceClassName);
-			}
-		}
+		Set<String> names = OSGiBeanProperties.Service.interfaceNames(
+			bean, osgiBeanProperties,
+			PropsValues.MODULE_FRAMEWORK_SERVICES_IGNORED_INTERFACES);
 
 		if (names.isEmpty()) {
 			return null;
@@ -982,8 +1435,8 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 		ServiceRegistration<?> serviceRegistration =
 			bundleContext.registerService(
-				names.toArray(new String[names.size()]), bean,
-				_getProperties(bean, beanName));
+				names.toArray(new String[0]), bean,
+				_getProperties(osgiBeanProperties, beanName));
 
 		if (_log.isDebugEnabled()) {
 			_log.debug(
@@ -1012,9 +1465,9 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		}
 	}
 
-	private void _setUpInitialBundles() throws Exception {
-		if (_log.isDebugEnabled()) {
-			_log.debug("Starting initial bundles");
+	private Bundle _setUpInitialBundles() throws Exception {
+		if (_log.isInfoEnabled()) {
+			_log.info("Starting initial bundles");
 		}
 
 		BundleContext bundleContext = _framework.getBundleContext();
@@ -1028,7 +1481,7 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		bundleContext.registerService(
 			ThrowableCollector.class, throwableCollector, dictionary);
 
-		final List<Bundle> bundles = new ArrayList<>();
+		Set<Bundle> bundles = new HashSet<>();
 
 		final List<Path> jarPaths = new ArrayList<>();
 
@@ -1046,8 +1499,20 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 					String fileName = StringUtil.toLowerCase(
 						fileNamePath.toString());
 
-					if (fileName.endsWith(".jar")) {
+					if (!fileName.endsWith(".jar")) {
+						return FileVisitResult.CONTINUE;
+					}
+
+					if (_isValid(fileName)) {
 						jarPaths.add(filePath.toAbsolutePath());
+
+						return FileVisitResult.CONTINUE;
+					}
+
+					if (_log.isWarnEnabled()) {
+						_log.warn(
+							"Override static jar " + fileName +
+								" has an invalid name and will be ignored");
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -1055,168 +1520,239 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 
 			});
 
-		Path utilTaglibPath = Paths.get(
-			PropsValues.LIFERAY_LIB_PORTAL_DIR, "util-taglib.jar");
+		for (String staticJarFileName :
+				PropsValues.MODULE_FRAMEWORK_STATIC_JARS) {
 
-		if (Files.exists(utilTaglibPath)) {
-			jarPaths.add(utilTaglibPath);
-		}
-		else {
-			_log.error("Missing " + utilTaglibPath);
+			File staticJarFile = new File(
+				PropsValues.LIFERAY_LIB_PORTAL_DIR, staticJarFileName);
+
+			if (staticJarFile.exists()) {
+				jarPaths.add(staticJarFile.toPath());
+			}
+			else {
+				_log.error("Missing " + staticJarFile);
+			}
 		}
 
 		Collections.sort(jarPaths);
 
+		List<Bundle> refreshBundles = new ArrayList<>();
+
+		for (Bundle bundle : bundleContext.getBundles()) {
+			String location = bundle.getLocation();
+
+			if (!location.contains("protocol=jar&static=true")) {
+				continue;
+			}
+
+			URI uri = new URI(location);
+
+			if (Files.exists(
+					Paths.get(
+						new URI(
+							uri.getScheme(), uri.getAuthority(), uri.getPath(),
+							null, uri.getFragment())))) {
+
+				bundles.add(bundle);
+
+				continue;
+			}
+
+			bundle.uninstall();
+
+			refreshBundles.add(bundle);
+
+			if (_log.isInfoEnabled()) {
+				_log.info(
+					"Uninstalled orphan overriding static JAR bundle " +
+						location);
+			}
+		}
+
+		_refreshBundles(refreshBundles);
+
+		refreshBundles.clear();
+
+		Set<String> overrideStaticFileNames = new HashSet<>();
+
 		for (Path jarPath : jarPaths) {
 			try (InputStream inputStream = Files.newInputStream(jarPath)) {
-				Bundle bundle = _installInitialBundle(
-					jarPath.toString(), inputStream);
+				File file = jarPath.toFile();
+
+				URI uri = file.toURI();
+
+				String uriString = uri.toString();
+
+				String location = uriString.concat("?protocol=jar&static=true");
+
+				Bundle bundle = _installInitialBundle(location, inputStream);
 
 				if (bundle != null) {
 					bundles.add(bundle);
+
+					overrideStaticFileNames.add(
+						uriString.substring(
+							uriString.lastIndexOf(CharPool.SLASH) + 1));
 				}
 			}
 		}
 
-		File file = new File(
-			bundleContext.getProperty("lpkg.deployer.dir") + StringPool.SLASH +
-				StaticLPKGResolver.getStaticLPKGFileName());
+		String deployDir = bundleContext.getProperty("lpkg.deployer.dir");
 
-		if (file.exists()) {
-			try (ZipFile zipFile = new ZipFile(file)) {
-				Enumeration<? extends ZipEntry> enumeration = zipFile.entries();
+		for (String staticFileName :
+				StaticLPKGResolver.getStaticLPKGFileNames()) {
 
-				List<ZipEntry> zipEntries = new ArrayList<>();
+			File file = new File(deployDir + StringPool.SLASH + staticFileName);
 
-				while (enumeration.hasMoreElements()) {
-					ZipEntry zipEntry = enumeration.nextElement();
+			if (file.exists()) {
+				bundles.addAll(
+					_deployStaticBundlesFromFile(
+						file, overrideStaticFileNames));
+			}
+		}
 
-					String name = StringUtil.toLowerCase(zipEntry.getName());
+		Set<String> overrideLPKGFileNames = new HashSet<>();
 
-					if (!name.endsWith(".jar")) {
-						continue;
-					}
+		try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(
+				Paths.get(deployDir, "override"))) {
 
-					zipEntries.add(zipEntry);
+			for (Path path : directoryStream) {
+				String fileName = String.valueOf(path.getFileName());
+
+				String pathName = StringUtil.toLowerCase(fileName);
+
+				if (pathName.endsWith("jar")) {
+					overrideLPKGFileNames.add(fileName);
+				}
+			}
+		}
+
+		if (!overrideLPKGFileNames.isEmpty()) {
+			for (Bundle bundle : bundleContext.getBundles()) {
+				if (bundle.getBundleId() == 0) {
+					continue;
 				}
 
-				Collections.sort(
-					zipEntries,
-					new Comparator<ZipEntry>() {
+				String location = bundle.getLocation();
 
-						@Override
-						public int compare(
-							ZipEntry zipEntry1, ZipEntry zipEntry2) {
+				location = _extractFileName(location);
 
-							String name1 = zipEntry1.getName();
-							String name2 = zipEntry2.getName();
-
-							return name1.compareTo(name2);
-						}
-
-					});
-
-				for (ZipEntry zipEntry : zipEntries) {
-					try (InputStream inputStream = zipFile.getInputStream(
-							zipEntry)) {
-
-						Bundle bundle = _installInitialBundle(
-							StringPool.SLASH.concat(zipEntry.getName()),
-							inputStream);
-
-						if (bundle != null) {
-							bundles.add(bundle);
-						}
-					}
+				if (overrideLPKGFileNames.contains(location)) {
+					bundle.uninstall();
 				}
+			}
+		}
+
+		Bundle fileInstallBundle = null;
+
+		for (Bundle bundle : bundles) {
+			if (!_isFragmentBundle(bundle)) {
+				if (Objects.equals(
+						bundle.getSymbolicName(),
+						"org.apache.felix.fileinstall")) {
+
+					fileInstallBundle = bundle;
+				}
+
+				bundle.stop();
 			}
 		}
 
 		FrameworkStartLevel frameworkStartLevel = _framework.adapt(
 			FrameworkStartLevel.class);
 
+		DefaultNoticeableFuture<FrameworkEvent> defaultNoticeableFuture =
+			new DefaultNoticeableFuture<>();
+
 		frameworkStartLevel.setStartLevel(
-			PropsValues.MODULE_FRAMEWORK_BEGINNING_START_LEVEL);
+			PropsValues.MODULE_FRAMEWORK_BEGINNING_START_LEVEL,
+			frameworkEvent -> defaultNoticeableFuture.set(frameworkEvent));
 
-		for (final Bundle bundle : bundles) {
-			if (_isFragmentBundle(bundle)) {
-				continue;
-			}
+		FrameworkEvent frameworkEvent = defaultNoticeableFuture.get();
 
-			final CountDownLatch countDownLatch = new CountDownLatch(1);
-
-			BundleTracker<Void> bundleTracker = new BundleTracker<Void>(
-				_framework.getBundleContext(), Bundle.ACTIVE, null) {
-
-				@Override
-				public Void addingBundle(
-					Bundle trackedBundle, BundleEvent bundleEvent) {
-
-					if (trackedBundle == bundle) {
-						countDownLatch.countDown();
-
-						close();
-					}
-
-					return null;
-				}
-
-			};
-
-			bundleTracker.open();
-
-			countDownLatch.await();
-		}
-
-		throwableCollector.rethrow();
-
-		if (_log.isDebugEnabled()) {
-			_log.debug("Started initial bundles");
-		}
-
-		Bundle[] installedBundles = bundleContext.getBundles();
-
-		List<String> hostBundleSymbolicNames = new ArrayList<>();
-
-		for (Bundle bundle : installedBundles) {
-			BundleStartLevel bundleStartLevel = bundle.adapt(
-				BundleStartLevel.class);
-
-			if (bundleStartLevel.getStartLevel() !=
-					PropsValues.MODULE_FRAMEWORK_DYNAMIC_INSTALL_START_LEVEL) {
-
-				continue;
-			}
-
-			Dictionary<String, String> headers = bundle.getHeaders();
-
-			String fragmentHost = headers.get(Constants.FRAGMENT_HOST);
-
-			if (fragmentHost == null) {
-				continue;
-			}
-
-			int index = fragmentHost.indexOf(CharPool.SEMICOLON);
-
-			if (index != -1) {
-				fragmentHost = fragmentHost.substring(0, index);
-			}
-
-			hostBundleSymbolicNames.add(fragmentHost);
-		}
-
-		List<Bundle> hostBundles = new ArrayList<>();
-
-		for (Bundle bundle : installedBundles) {
-			if (hostBundleSymbolicNames.contains(bundle.getSymbolicName())) {
-				hostBundles.add(bundle);
-			}
+		if (frameworkEvent.getType() != FrameworkEvent.STARTLEVEL_CHANGED) {
+			ReflectionUtil.throwException(frameworkEvent.getThrowable());
 		}
 
 		FrameworkWiring frameworkWiring = _framework.adapt(
 			FrameworkWiring.class);
 
-		frameworkWiring.refreshBundles(hostBundles);
+		frameworkWiring.resolveBundles(bundles);
+
+		_startConfigurationBundles(bundles);
+
+		BundleWiring bundleWiring = fileInstallBundle.adapt(BundleWiring.class);
+
+		_installConfigs(bundleWiring.getClassLoader());
+
+		if (PropsValues.MODULE_FRAMEWORK_CONCURRENT_STARTUP_ENABLED) {
+			Runtime runtime = Runtime.getRuntime();
+
+			ExecutorService executorService = Executors.newFixedThreadPool(
+				runtime.availableProcessors(),
+				new NamedThreadFactory(
+					"ModuleFramework-Static-Bundles", Thread.NORM_PRIORITY,
+					ModuleFrameworkImpl.class.getClassLoader()));
+
+			List<Future<Void>> futures = new ArrayList<>(bundles.size());
+
+			for (Bundle bundle : bundles) {
+				if (!_isFragmentBundle(bundle) &&
+					(bundle != fileInstallBundle)) {
+
+					futures.add(
+						executorService.submit(
+							() -> {
+								bundle.start();
+
+								return null;
+							}));
+				}
+			}
+
+			executorService.shutdown();
+
+			for (Future<Void> future : futures) {
+				try {
+					future.get();
+				}
+				catch (ExecutionException ee) {
+					throwableCollector.collect(ee.getCause());
+				}
+				catch (InterruptedException ie) {
+					throwableCollector.collect(ie);
+				}
+			}
+		}
+		else {
+			for (Bundle bundle : bundles) {
+				if (!_isFragmentBundle(bundle) &&
+					(bundle != fileInstallBundle)) {
+
+					bundle.start();
+				}
+			}
+		}
+
+		throwableCollector.rethrow();
+
+		Bundle[] installedBundles = bundleContext.getBundles();
+
+		Set<Bundle> fragmentBundles = new HashSet<>();
+
+		for (Bundle bundle : installedBundles) {
+			if (_isFragmentBundle(bundle)) {
+				fragmentBundles.add(bundle);
+			}
+		}
+
+		frameworkWiring.resolveBundles(fragmentBundles);
+
+		if (_log.isInfoEnabled()) {
+			_log.info("Started initial bundles");
+		}
+
+		return fileInstallBundle;
 	}
 
 	private void _setUpPrerequisiteFrameworkServices(
@@ -1244,23 +1780,42 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		}
 	}
 
-	private void _startDynamicBundles() throws Exception {
+	private void _startConfigurationBundles(Collection<Bundle> bundles)
+		throws BundleException {
+
+		Iterator<Bundle> iterator = bundles.iterator();
+
+		while (iterator.hasNext()) {
+			Bundle bundle = iterator.next();
+
+			if (_configurationBundleSymbolicNames.contains(
+					bundle.getSymbolicName())) {
+
+				bundle.start();
+
+				iterator.remove();
+			}
+		}
+	}
+
+	private void _startDynamicBundles(Bundle fileInstallBundle)
+		throws Exception {
+
+		if (_log.isInfoEnabled()) {
+			_log.info("Starting dynamic bundles");
+		}
+
+		Map<String, Long> dynamicBundleChecksums = _installDynamicBundles();
+
 		FrameworkStartLevel frameworkStartLevel = _framework.adapt(
 			FrameworkStartLevel.class);
 
-		final DefaultNoticeableFuture<FrameworkEvent> defaultNoticeableFuture =
+		DefaultNoticeableFuture<FrameworkEvent> defaultNoticeableFuture =
 			new DefaultNoticeableFuture<>();
 
 		frameworkStartLevel.setStartLevel(
 			PropsValues.MODULE_FRAMEWORK_DYNAMIC_INSTALL_START_LEVEL,
-			new FrameworkListener() {
-
-				@Override
-				public void frameworkEvent(FrameworkEvent fe) {
-					defaultNoticeableFuture.set(fe);
-				}
-
-			});
+			frameworkEvent -> defaultNoticeableFuture.set(frameworkEvent));
 
 		FrameworkEvent frameworkEvent = defaultNoticeableFuture.get();
 
@@ -1268,46 +1823,54 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 			ReflectionUtil.throwException(frameworkEvent.getThrowable());
 		}
 
-		BundleContext bundleContext = _framework.getBundleContext();
+		if (dynamicBundleChecksums.isEmpty()) {
+			fileInstallBundle.start();
+		}
+		else {
+			SynchronousBundleListener synchronousBundleListener = event -> {
+				if (event.getType() != BundleEvent.STARTING) {
+					return;
+				}
 
-		for (Bundle bundle : bundleContext.getBundles()) {
-			if ((bundle.getState() != Bundle.INSTALLED) &&
-				(bundle.getState() != Bundle.RESOLVED)) {
+				Bundle currentBundle = event.getBundle();
 
-				continue;
-			}
-
-			BundleRevision bundleRevision = bundle.adapt(BundleRevision.class);
-
-			if ((bundleRevision.getTypes() & BundleRevision.TYPE_FRAGMENT) !=
-					0) {
-
-				continue;
-			}
-
-			BundleStartLevel bundleStartLevel = bundle.adapt(
-				BundleStartLevel.class);
-
-			if (bundleStartLevel.getStartLevel() ==
-					PropsValues.MODULE_FRAMEWORK_DYNAMIC_INSTALL_START_LEVEL) {
+				if (currentBundle != fileInstallBundle) {
+					return;
+				}
 
 				try {
-					bundle.start();
+					_registerDynamicBundles(
+						dynamicBundleChecksums,
+						currentBundle.getBundleContext());
 				}
-				catch (BundleException be) {
+				catch (Exception e) {
 					_log.error(
-						"Unable to start bundle " + bundle.getSymbolicName(),
-						be);
+						"Unable to register dynamic bundle checksums", e);
 				}
+			};
+
+			BundleContext bundleContext = _framework.getBundleContext();
+
+			bundleContext.addBundleListener(synchronousBundleListener);
+
+			try {
+				fileInstallBundle.start();
 			}
+			finally {
+				bundleContext.removeBundleListener(synchronousBundleListener);
+			}
+		}
+
+		if (_log.isInfoEnabled()) {
+			_log.info("Started dynamic bundles");
 		}
 	}
 
 	private void _unregisterApplicationContext(
-		ApplicationContext applicationContext) {
+		ConfigurableApplicationContext configurableApplicationContext) {
 
 		List<ServiceRegistration<?>> serviceRegistrations =
-			_springContextServices.remove(applicationContext);
+			_springContextServices.remove(configurableApplicationContext);
 
 		if (serviceRegistrations == null) {
 			return;
@@ -1329,11 +1892,49 @@ public class ModuleFrameworkImpl implements ModuleFramework {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
+	private void _validateModuleFrameworkBaseDirForEquinox()
+		throws MalformedURLException {
+
+		File baseDir = new File(PropsValues.MODULE_FRAMEWORK_BASE_DIR);
+
+		baseDir = baseDir.getAbsoluteFile();
+
+		// See LPS-71758. Do what Equinox does internally to get a file path and
+		// validate it. Equinox converts a File into a URL using File#toURL(),
+		// and later creates the OSGi persistence directory using the URL, which
+		// does not properly handle special character escaping and decoding.
+
+		URL url = baseDir.toURL();
+
+		File equinoxBaseDir = new File(url.getFile());
+
+		if (!baseDir.equals(equinoxBaseDir) && _log.isWarnEnabled()) {
+			StringBundler sb = new StringBundler(6);
+
+			sb.append("The module.framework.base.dir path \"");
+			sb.append(baseDir);
+			sb.append("\" contains characters that Equinox cannot handle. ");
+			sb.append("The OSGi persistence data will be stored under \"");
+			sb.append(equinoxBaseDir);
+			sb.append("\"");
+
+			_log.warn(sb.toString());
+		}
+	}
+
+	private static final String _CHECKSUM_SUFFIX = ".checksum";
+
 	private static final Log _log = LogFactoryUtil.getLog(
 		ModuleFrameworkImpl.class);
 
+	private static final List<String> _configurationBundleSymbolicNames =
+		Arrays.asList(
+			PropsValues.MODULE_FRAMEWORK_CONFIGURATION_BUNDLE_SYMBOLIC_NAMES);
+
 	private Framework _framework;
-	private final Map<ApplicationContext, List<ServiceRegistration<?>>>
-		_springContextServices = new ConcurrentHashMap<>();
+	private final Map
+		<ConfigurableApplicationContext, List<ServiceRegistration<?>>>
+			_springContextServices = new ConcurrentHashMap<>();
 
 }

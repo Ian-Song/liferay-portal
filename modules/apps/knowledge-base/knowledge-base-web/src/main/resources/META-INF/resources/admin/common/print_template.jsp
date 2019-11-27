@@ -22,13 +22,14 @@ KBTemplate kbTemplate = (KBTemplate)request.getAttribute(KBWebKeys.KNOWLEDGE_BAS
 
 <div class="float-container kb-entity-header">
 	<div class="kb-title">
-		<%= kbTemplate.getTitle() %>
+		<%= HtmlUtil.escape(kbTemplate.getTitle()) %>
 	</div>
 
 	<div class="kb-tools">
 		<liferay-ui:icon
-			iconCssClass="icon-print"
+			icon="print"
 			label="<%= true %>"
+			markupView="lexicon"
 			message="print"
 			url="javascript:print();"
 		/>

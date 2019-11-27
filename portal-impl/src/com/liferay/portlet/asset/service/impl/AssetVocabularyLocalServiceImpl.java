@@ -18,6 +18,7 @@ import com.liferay.asset.kernel.exception.DuplicateVocabularyException;
 import com.liferay.asset.kernel.exception.VocabularyNameException;
 import com.liferay.asset.kernel.model.AssetCategoryConstants;
 import com.liferay.asset.kernel.model.AssetVocabulary;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.model.Group;
 import com.liferay.portal.kernel.model.ResourceConstants;
@@ -39,16 +40,15 @@ import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.service.permission.ModelPermissions;
 import com.liferay.portal.kernel.systemevent.SystemEvent;
 import com.liferay.portal.kernel.util.GetterUtil;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.kernel.util.OrderByComparator;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.util.PropsValues;
 import com.liferay.portlet.asset.service.base.AssetVocabularyLocalServiceBaseImpl;
 import com.liferay.portlet.asset.util.AssetUtil;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -74,13 +74,13 @@ public class AssetVocabularyLocalServiceImpl
 		long defaultUserId = userLocalService.getDefaultUserId(
 			group.getCompanyId());
 
-		Map<Locale, String> titleMap = new HashMap<>();
-
-		titleMap.put(
-			LocaleUtil.getSiteDefault(), PropsValues.ASSET_VOCABULARY_DEFAULT);
+		Map<Locale, String> titleMap = HashMapBuilder.put(
+			LocaleUtil.getSiteDefault(), PropsValues.ASSET_VOCABULARY_DEFAULT
+		).build();
 
 		ServiceContext serviceContext = new ServiceContext();
 
+		serviceContext.setAddGuestPermissions(true);
 		serviceContext.setScopeGroupId(groupId);
 
 		return assetVocabularyLocalService.addVocabulary(
@@ -98,7 +98,8 @@ public class AssetVocabularyLocalServiceImpl
 
 		// Vocabulary
 
-		User user = userPersistence.findByPrimaryKey(userId);
+		User user = userLocalService.getUser(userId);
+
 		String name = titleMap.get(LocaleUtil.getSiteDefault());
 
 		validate(groupId, name);
@@ -150,15 +151,15 @@ public class AssetVocabularyLocalServiceImpl
 			ServiceContext serviceContext)
 		throws PortalException {
 
-		Map<Locale, String> titleMap = new HashMap<>();
-
 		Locale locale = LocaleUtil.getSiteDefault();
 
-		titleMap.put(locale, title);
+		Map<Locale, String> titleMap = HashMapBuilder.put(
+			locale, title
+		).build();
 
-		Map<Locale, String> descriptionMap = new HashMap<>();
-
-		descriptionMap.put(locale, StringPool.BLANK);
+		Map<Locale, String> descriptionMap = HashMapBuilder.put(
+			locale, StringPool.BLANK
+		).build();
 
 		return assetVocabularyLocalService.addVocabulary(
 			userId, groupId, title, titleMap, descriptionMap, null,
@@ -232,6 +233,11 @@ public class AssetVocabularyLocalServiceImpl
 			assetVocabularyPersistence.findByPrimaryKey(vocabularyId);
 
 		assetVocabularyLocalService.deleteVocabulary(vocabulary);
+	}
+
+	@Override
+	public AssetVocabulary fetchGroupVocabulary(long groupId, String name) {
+		return assetVocabularyPersistence.fetchByG_N(groupId, name);
 	}
 
 	@Override
@@ -360,9 +366,7 @@ public class AssetVocabularyLocalServiceImpl
 		List<AssetVocabulary> vocabularies = new ArrayList<>();
 
 		for (long vocabularyId : vocabularyIds) {
-			AssetVocabulary vocabulary = getVocabulary(vocabularyId);
-
-			vocabularies.add(vocabulary);
+			vocabularies.add(getVocabulary(vocabularyId));
 		}
 
 		return vocabularies;
@@ -408,7 +412,9 @@ public class AssetVocabularyLocalServiceImpl
 		AssetVocabulary vocabulary =
 			assetVocabularyPersistence.findByPrimaryKey(vocabularyId);
 
-		if (!vocabulary.getName().equals(name)) {
+		String vocabularyName = vocabulary.getName();
+
+		if (!vocabularyName.equals(name)) {
 			validate(vocabulary.getGroupId(), name);
 		}
 
@@ -453,9 +459,8 @@ public class AssetVocabularyLocalServiceImpl
 		if (assetVocabularyPersistence.countByG_N(groupId, name) == 0) {
 			return false;
 		}
-		else {
-			return true;
-		}
+
+		return true;
 	}
 
 	protected BaseModelSearchResult<AssetVocabulary> searchVocabularies(

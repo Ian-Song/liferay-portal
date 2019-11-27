@@ -28,6 +28,7 @@ MenuItem menuItem = (MenuItem)request.getAttribute("liferay-ui:menu_item:menuIte
 		%>
 
 		<liferay-ui:icon-delete
+			message="<%= HtmlUtil.escape(deleteMenuItem.getLabel()) %>"
 			trash="<%= deleteMenuItem.isTrash() %>"
 			url="<%= deleteMenuItem.getURL() %>"
 		/>
@@ -42,13 +43,15 @@ MenuItem menuItem = (MenuItem)request.getAttribute("liferay-ui:menu_item:menuIte
 			data="<%= javaScriptMenuItem.getData() %>"
 			iconCssClass="<%= javaScriptMenuItem.getIcon() %>"
 			message="<%= HtmlUtil.escape(javaScriptMenuItem.getLabel()) %>"
-			onClick="<%= javaScriptMenuItem.getOnClick() %>"
+			onClick="<%= HtmlUtil.escapeAttribute(javaScriptMenuItem.getOnClick()) %>"
 			url="javascript:;"
 		/>
 
-		<aui:script>
-			<%= javaScriptMenuItem.getJavaScript() %>
-		</aui:script>
+		<c:if test="<%= Validator.isNotNull(javaScriptMenuItem.getJavaScript()) %>">
+			<aui:script>
+				<%= javaScriptMenuItem.getJavaScript() %>
+			</aui:script>
+		</c:if>
 	</c:when>
 	<c:when test="<%= menuItem instanceof URLMenuItem %>">
 

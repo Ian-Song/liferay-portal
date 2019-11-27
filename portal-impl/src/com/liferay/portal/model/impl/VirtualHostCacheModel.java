@@ -14,14 +14,11 @@
 
 package com.liferay.portal.model.impl;
 
-import aQute.bnd.annotation.ProviderType;
-
+import com.liferay.petra.lang.HashUtil;
+import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.model.CacheModel;
 import com.liferay.portal.kernel.model.MVCCModel;
 import com.liferay.portal.kernel.model.VirtualHost;
-import com.liferay.portal.kernel.util.HashUtil;
-import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -32,12 +29,11 @@ import java.io.ObjectOutput;
  * The cache model class for representing VirtualHost in entity cache.
  *
  * @author Brian Wing Shun Chan
- * @see VirtualHost
  * @generated
  */
-@ProviderType
-public class VirtualHostCacheModel implements CacheModel<VirtualHost>,
-	Externalizable, MVCCModel {
+public class VirtualHostCacheModel
+	implements CacheModel<VirtualHost>, Externalizable, MVCCModel {
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) {
@@ -48,10 +44,12 @@ public class VirtualHostCacheModel implements CacheModel<VirtualHost>,
 			return false;
 		}
 
-		VirtualHostCacheModel virtualHostCacheModel = (VirtualHostCacheModel)obj;
+		VirtualHostCacheModel virtualHostCacheModel =
+			(VirtualHostCacheModel)obj;
 
 		if ((virtualHostId == virtualHostCacheModel.virtualHostId) &&
-				(mvccVersion == virtualHostCacheModel.mvccVersion)) {
+			(mvccVersion == virtualHostCacheModel.mvccVersion)) {
+
 			return true;
 		}
 
@@ -77,7 +75,7 @@ public class VirtualHostCacheModel implements CacheModel<VirtualHost>,
 
 	@Override
 	public String toString() {
-		StringBundler sb = new StringBundler(11);
+		StringBundler sb = new StringBundler(15);
 
 		sb.append("{mvccVersion=");
 		sb.append(mvccVersion);
@@ -89,6 +87,10 @@ public class VirtualHostCacheModel implements CacheModel<VirtualHost>,
 		sb.append(layoutSetId);
 		sb.append(", hostname=");
 		sb.append(hostname);
+		sb.append(", defaultVirtualHost=");
+		sb.append(defaultVirtualHost);
+		sb.append(", languageId=");
+		sb.append(languageId);
 		sb.append("}");
 
 		return sb.toString();
@@ -104,10 +106,19 @@ public class VirtualHostCacheModel implements CacheModel<VirtualHost>,
 		virtualHostImpl.setLayoutSetId(layoutSetId);
 
 		if (hostname == null) {
-			virtualHostImpl.setHostname(StringPool.BLANK);
+			virtualHostImpl.setHostname("");
 		}
 		else {
 			virtualHostImpl.setHostname(hostname);
+		}
+
+		virtualHostImpl.setDefaultVirtualHost(defaultVirtualHost);
+
+		if (languageId == null) {
+			virtualHostImpl.setLanguageId("");
+		}
+		else {
+			virtualHostImpl.setLanguageId(languageId);
 		}
 
 		virtualHostImpl.resetOriginalValues();
@@ -125,11 +136,13 @@ public class VirtualHostCacheModel implements CacheModel<VirtualHost>,
 
 		layoutSetId = objectInput.readLong();
 		hostname = objectInput.readUTF();
+
+		defaultVirtualHost = objectInput.readBoolean();
+		languageId = objectInput.readUTF();
 	}
 
 	@Override
-	public void writeExternal(ObjectOutput objectOutput)
-		throws IOException {
+	public void writeExternal(ObjectOutput objectOutput) throws IOException {
 		objectOutput.writeLong(mvccVersion);
 
 		objectOutput.writeLong(virtualHostId);
@@ -139,10 +152,19 @@ public class VirtualHostCacheModel implements CacheModel<VirtualHost>,
 		objectOutput.writeLong(layoutSetId);
 
 		if (hostname == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(hostname);
+		}
+
+		objectOutput.writeBoolean(defaultVirtualHost);
+
+		if (languageId == null) {
+			objectOutput.writeUTF("");
+		}
+		else {
+			objectOutput.writeUTF(languageId);
 		}
 	}
 
@@ -151,4 +173,7 @@ public class VirtualHostCacheModel implements CacheModel<VirtualHost>,
 	public long companyId;
 	public long layoutSetId;
 	public String hostname;
+	public boolean defaultVirtualHost;
+	public String languageId;
+
 }

@@ -23,13 +23,15 @@ import javax.servlet.http.HttpSessionActivationListener;
 import javax.servlet.http.HttpSessionEvent;
 
 /**
- * @author Alexander Chow
+ * @author     Alexander Chow
+ * @deprecated As of Judson (7.1.x), with no direct replacement
  */
+@Deprecated
 public class PortalSessionActivationListener
 	implements HttpSessionActivationListener, Serializable {
 
 	public static PortalSessionActivationListener getInstance() {
-		return _instance;
+		return _portalSessionActivationListener;
 	}
 
 	public static PortalSessionActivationListener getInstance(
@@ -51,7 +53,7 @@ public class PortalSessionActivationListener
 
 	public static void setInstance(HttpSession session) {
 		TransientValue<PortalSessionActivationListener> transientValue =
-			new TransientValue<>(PortalSessionActivationListener.getInstance());
+			new TransientValue<>(getInstance());
 
 		session.setAttribute(
 			PortalSessionActivationListener.class.getName(), transientValue);
@@ -66,7 +68,8 @@ public class PortalSessionActivationListener
 	public void sessionWillPassivate(HttpSessionEvent httpSessionEvent) {
 	}
 
-	private static final PortalSessionActivationListener _instance =
-		new PortalSessionActivationListener();
+	private static final PortalSessionActivationListener
+		_portalSessionActivationListener =
+			new PortalSessionActivationListener();
 
 }

@@ -14,14 +14,11 @@
 
 package com.liferay.document.library.kernel.exception;
 
-import aQute.bnd.annotation.ProviderType;
-
 import com.liferay.portal.kernel.exception.PortalException;
 
 /**
  * @author Brian Wing Shun Chan
  */
-@ProviderType
 public class FileEntryLockException extends PortalException {
 
 	public FileEntryLockException() {
@@ -37,6 +34,9 @@ public class FileEntryLockException extends PortalException {
 
 	public FileEntryLockException(Throwable cause) {
 		super(cause);
+	}
+
+	public static class MustBeUnlocked extends FileEntryLockException {
 	}
 
 	public static class MustOwnLock extends FileEntryLockException {

@@ -14,12 +14,12 @@
 
 package com.liferay.portal.kernel.messaging;
 
+import com.liferay.petra.lang.CentralizedThreadLocal;
 import com.liferay.portal.kernel.cache.thread.local.Lifecycle;
 import com.liferay.portal.kernel.cache.thread.local.ThreadLocalCacheManager;
 import com.liferay.portal.kernel.concurrent.ThreadPoolExecutor;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
-import com.liferay.portal.kernel.util.CentralizedThreadLocal;
 
 import java.util.Set;
 
@@ -29,8 +29,11 @@ import java.util.Set;
  * time.
  * </p>
  *
- * @author Michael C. Han
+ * @author     Michael C. Han
+ * @deprecated As of Athanasius (7.3.x), replaced by {@link
+ *             com.liferay.portal.messaging.internal.SerialDestination}
  */
+@Deprecated
 public class SerialDestination extends BaseAsyncDestination {
 
 	public SerialDestination() {

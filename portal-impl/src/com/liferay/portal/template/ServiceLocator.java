@@ -14,8 +14,6 @@
 
 package com.liferay.portal.template;
 
-import aQute.bnd.annotation.ProviderType;
-
 import com.liferay.portal.bean.BeanLocatorImpl;
 import com.liferay.portal.kernel.bean.PortalBeanLocatorUtil;
 import com.liferay.portal.kernel.bean.PortletBeanLocatorUtil;
@@ -24,14 +22,15 @@ import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.registry.Registry;
 import com.liferay.registry.RegistryUtil;
 
+import java.util.function.Function;
+
 /**
  * @author Brian Wing Shun Chan
  */
-@ProviderType
 public class ServiceLocator {
 
 	public static ServiceLocator getInstance() {
-		return _instance;
+		return _serviceLocator;
 	}
 
 	public Object findService(String serviceName) {
@@ -40,7 +39,7 @@ public class ServiceLocator {
 		try {
 			Registry registry = RegistryUtil.getRegistry();
 
-			bean = registry.getService(serviceName);
+			bean = registry.callService(serviceName, Function.identity());
 
 			if (bean == null) {
 				bean = PortalBeanLocatorUtil.locate(
@@ -81,6 +80,6 @@ public class ServiceLocator {
 
 	private static final Log _log = LogFactoryUtil.getLog(ServiceLocator.class);
 
-	private static final ServiceLocator _instance = new ServiceLocator();
+	private static final ServiceLocator _serviceLocator = new ServiceLocator();
 
 }

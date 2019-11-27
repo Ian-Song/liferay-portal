@@ -24,7 +24,7 @@
 		<aui:option label="thesaurus" value="http://thesaurus.reference.com/browse/" />
 	</aui:select>
 
-	<aui:button cssClass="btn-lg" type="submit" value="find" />
+	<aui:button type="submit" value="find" />
 </aui:form>
 
 <aui:script>
@@ -34,6 +34,8 @@
 		var type = form.<portlet:namespace />type.selectedIndex;
 		var word = form.<portlet:namespace />word.value;
 
-		window.open(form.<portlet:namespace />type[type].value + encodeURIComponent(word));
+		window.open(
+			form.<portlet:namespace />type[type].value + encodeURIComponent(word)
+		);
 	}
 </aui:script>

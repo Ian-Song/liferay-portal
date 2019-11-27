@@ -19,8 +19,10 @@ import com.liferay.gradle.util.GradleUtil;
 import org.gradle.api.Project;
 
 /**
- * @author Andrea Di Giorgi
+ * @author     Andrea Di Giorgi
+ * @deprecated As of Judson (7.1.x), with no direct replacement
  */
+@Deprecated
 public class JSModuleConfigGeneratorExtension {
 
 	public JSModuleConfigGeneratorExtension(Project project) {
@@ -34,6 +36,6 @@ public class JSModuleConfigGeneratorExtension {
 		_version = version;
 	}
 
-	private Object _version = "1.1.10";
+	private Object _version = "1.2.1";
 
 }

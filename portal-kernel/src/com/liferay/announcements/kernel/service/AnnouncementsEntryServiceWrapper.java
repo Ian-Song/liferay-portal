@@ -14,8 +14,6 @@
 
 package com.liferay.announcements.kernel.service;
 
-import aQute.bnd.annotation.ProviderType;
-
 import com.liferay.portal.kernel.service.ServiceWrapper;
 
 /**
@@ -25,70 +23,69 @@ import com.liferay.portal.kernel.service.ServiceWrapper;
  * @see AnnouncementsEntryService
  * @generated
  */
-@ProviderType
 public class AnnouncementsEntryServiceWrapper
 	implements AnnouncementsEntryService,
-		ServiceWrapper<AnnouncementsEntryService> {
+			   ServiceWrapper<AnnouncementsEntryService> {
+
 	public AnnouncementsEntryServiceWrapper(
 		AnnouncementsEntryService announcementsEntryService) {
+
 		_announcementsEntryService = announcementsEntryService;
 	}
 
+	/**
+	 * NOTE FOR DEVELOPERS:
+	 *
+	 * Never modify or reference this interface directly. Always use {@link AnnouncementsEntryServiceUtil} to access the announcements entry remote service. Add custom service methods to <code>com.liferay.portlet.announcements.service.impl.AnnouncementsEntryServiceImpl</code> and rerun ServiceBuilder to automatically copy the method declarations to this interface.
+	 */
 	@Override
 	public com.liferay.announcements.kernel.model.AnnouncementsEntry addEntry(
-		long plid, long classNameId, long classPK, java.lang.String title,
-		java.lang.String content, java.lang.String url, java.lang.String type,
-		int displayDateMonth, int displayDateDay, int displayDateYear,
-		int displayDateHour, int displayDateMinute, boolean displayImmediately,
-		int expirationDateMonth, int expirationDateDay, int expirationDateYear,
-		int expirationDateHour, int expirationDateMinute, int priority,
-		boolean alert)
+			long classNameId, long classPK, String title, String content,
+			String url, String type, java.util.Date displayDate,
+			java.util.Date expirationDate, int priority, boolean alert)
 		throws com.liferay.portal.kernel.exception.PortalException {
-		return _announcementsEntryService.addEntry(plid, classNameId, classPK,
-			title, content, url, type, displayDateMonth, displayDateDay,
-			displayDateYear, displayDateHour, displayDateMinute,
-			displayImmediately, expirationDateMonth, expirationDateDay,
-			expirationDateYear, expirationDateHour, expirationDateMinute,
-			priority, alert);
-	}
 
-	@Override
-	public com.liferay.announcements.kernel.model.AnnouncementsEntry getEntry(
-		long entryId)
-		throws com.liferay.portal.kernel.exception.PortalException {
-		return _announcementsEntryService.getEntry(entryId);
-	}
-
-	@Override
-	public com.liferay.announcements.kernel.model.AnnouncementsEntry updateEntry(
-		long entryId, java.lang.String title, java.lang.String content,
-		java.lang.String url, java.lang.String type, int displayDateMonth,
-		int displayDateDay, int displayDateYear, int displayDateHour,
-		int displayDateMinute, boolean displayImmediately,
-		int expirationDateMonth, int expirationDateDay, int expirationDateYear,
-		int expirationDateHour, int expirationDateMinute, int priority)
-		throws com.liferay.portal.kernel.exception.PortalException {
-		return _announcementsEntryService.updateEntry(entryId, title, content,
-			url, type, displayDateMonth, displayDateDay, displayDateYear,
-			displayDateHour, displayDateMinute, displayImmediately,
-			expirationDateMonth, expirationDateDay, expirationDateYear,
-			expirationDateHour, expirationDateMinute, priority);
-	}
-
-	/**
-	* Returns the OSGi service identifier.
-	*
-	* @return the OSGi service identifier
-	*/
-	@Override
-	public java.lang.String getOSGiServiceIdentifier() {
-		return _announcementsEntryService.getOSGiServiceIdentifier();
+		return _announcementsEntryService.addEntry(
+			classNameId, classPK, title, content, url, type, displayDate,
+			expirationDate, priority, alert);
 	}
 
 	@Override
 	public void deleteEntry(long entryId)
 		throws com.liferay.portal.kernel.exception.PortalException {
+
 		_announcementsEntryService.deleteEntry(entryId);
+	}
+
+	@Override
+	public com.liferay.announcements.kernel.model.AnnouncementsEntry getEntry(
+			long entryId)
+		throws com.liferay.portal.kernel.exception.PortalException {
+
+		return _announcementsEntryService.getEntry(entryId);
+	}
+
+	/**
+	 * Returns the OSGi service identifier.
+	 *
+	 * @return the OSGi service identifier
+	 */
+	@Override
+	public String getOSGiServiceIdentifier() {
+		return _announcementsEntryService.getOSGiServiceIdentifier();
+	}
+
+	@Override
+	public com.liferay.announcements.kernel.model.AnnouncementsEntry
+			updateEntry(
+				long entryId, String title, String content, String url,
+				String type, java.util.Date displayDate,
+				java.util.Date expirationDate, int priority)
+		throws com.liferay.portal.kernel.exception.PortalException {
+
+		return _announcementsEntryService.updateEntry(
+			entryId, title, content, url, type, displayDate, expirationDate,
+			priority);
 	}
 
 	@Override
@@ -99,8 +96,10 @@ public class AnnouncementsEntryServiceWrapper
 	@Override
 	public void setWrappedService(
 		AnnouncementsEntryService announcementsEntryService) {
+
 		_announcementsEntryService = announcementsEntryService;
 	}
 
 	private AnnouncementsEntryService _announcementsEntryService;
+
 }

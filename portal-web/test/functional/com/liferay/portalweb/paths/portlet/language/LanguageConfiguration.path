@@ -25,33 +25,24 @@
 	<td></td>
 </tr>
 <tr>
-	<td>LANGUAGES_AVAILABLE_SELECT</td>
-	<td>//select[contains(@id,'availableLanguageIds')]/option</td>
-	<td></td>
-</tr>
-<tr>
-	<td></td>
-	<td></td>
-	<td></td>
-</tr>
-<tr>
-	<td>MOVE_CURRENT_TO_AVAILABLE_BUTTON</td>
-	<td>//button[@title='Move selected items from Current to Available.']</td>
-	<td></td>
-</tr>
-<tr>
-	<td>MOVE_AVAILABLE_TO_CURRENT_BUTTON</td>
-	<td>//button[@title='Move selected items from Available to Current.']</td>
-	<td></td>
-</tr>
-<tr>
-	<td></td>
-	<td></td>
-	<td></td>
-</tr>
-<tr>
 	<td>DISPLAY_TEMPLATE_SELECT</td>
 	<td>//select[contains(@id,'displayStyle')]</td>
+	<td></td>
+</tr>
+<!--DEPOT-->
+<tr>
+	<td>DEPOT_MUTED_DEFAULT_LANGUAGE</td>
+	<td>//div[@class='sheet-section']//fieldset[@class='fieldset']//fieldset[contains(@class,'default-language')]//p[contains(.,'${key_language}')]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>DEPOT_MUTED_TITLE</td>
+	<td>//div[@class='sheet-section']//fieldset[@class='fieldset']//h4[@class='text-muted' and contains(.,'${key_titleName}')]</td>
+	<td></td>
+</tr>
+<tr>
+	<td>DEPOT_MUTED_AVAILABLE_LANGUAGES</td>
+	<td>//div[@class='sheet-section']//fieldset[@class='fieldset']//fieldset[contains(@class,'available-languages')]//p[contains(.,'${key_languages}')]</td>
 	<td></td>
 </tr>
 </tbody>

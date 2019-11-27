@@ -14,8 +14,8 @@
 
 package com.liferay.gradle.plugins.workspace.tasks;
 
-import com.liferay.gradle.plugins.workspace.util.GradleUtil;
-import com.liferay.gradle.util.FileUtil;
+import com.liferay.gradle.plugins.workspace.internal.util.FileUtil;
+import com.liferay.gradle.plugins.workspace.internal.util.GradleUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -74,10 +74,9 @@ public class UpdatePropertiesTask extends DefaultTask {
 		Properties properties = FileUtil.readProperties(propertiesFile);
 
 		for (Map.Entry<String, Object> entry : _properties.entrySet()) {
-			String key = entry.getKey();
 			String value = GradleUtil.toString(entry.getValue());
 
-			properties.setProperty(key, value);
+			properties.setProperty(entry.getKey(), value);
 		}
 
 		try (OutputStream outputStream = Files.newOutputStream(

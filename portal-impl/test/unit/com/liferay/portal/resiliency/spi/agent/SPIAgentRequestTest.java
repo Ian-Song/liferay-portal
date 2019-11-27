@@ -14,6 +14,7 @@
 
 package com.liferay.portal.resiliency.spi.agent;
 
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.io.unsync.UnsyncByteArrayInputStream;
 import com.liferay.portal.kernel.model.Portlet;
 import com.liferay.portal.kernel.process.local.LocalProcessLauncher;
@@ -31,11 +32,11 @@ import com.liferay.portal.kernel.upload.FileItem;
 import com.liferay.portal.kernel.util.ContentTypes;
 import com.liferay.portal.kernel.util.CookieUtil;
 import com.liferay.portal.kernel.util.FileUtil;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.KeyValuePair;
 import com.liferay.portal.kernel.util.ListUtil;
 import com.liferay.portal.kernel.util.PortalUtil;
 import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.ThreadLocalDistributor;
 import com.liferay.portal.kernel.util.WebKeys;
@@ -71,7 +72,6 @@ import javax.servlet.http.HttpSession;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -90,13 +90,10 @@ public class SPIAgentRequestTest {
 		new AggregateTestRule(
 			CodeCoverageAssertor.INSTANCE, NewEnvTestRule.INSTANCE);
 
-	@BeforeClass
-	public static void setUpClass() throws Exception {
-		ToolDependencies.wireCaches();
-	}
-
 	@Before
 	public void setUp() throws Exception {
+		ToolDependencies.wireCaches();
+
 		FileUtil fileUtil = new FileUtil();
 
 		fileUtil.setFile(
@@ -253,13 +250,14 @@ public class SPIAgentRequestTest {
 
 		// Upload servlet request with multipart data
 
-		Map<String, FileItem[]> fileParameters = new HashMap<>();
-
 		String fileParameter = "fileParameter";
 
 		FileItem[] fileItems = new FileItem[0];
 
-		fileParameters.put(fileParameter, fileItems);
+		Map<String, FileItem[]> fileParameters =
+			HashMapBuilder.<String, FileItem[]>put(
+				fileParameter, fileItems
+			).build();
 
 		spiAgentRequest = new SPIAgentRequest(
 			new UploadServletRequestImpl(
@@ -281,23 +279,28 @@ public class SPIAgentRequestTest {
 		Map<String, List<String>> populatedRegularParameters =
 			uploadServletRequestImpl.getRegularParameterMap();
 
-		Assert.assertEquals(1, populatedFileParameters.size());
+		Assert.assertEquals(
+			populatedFileParameters.toString(), 1,
+			populatedFileParameters.size());
 		Assert.assertSame(
 			fileItems, populatedFileParameters.get(fileParameter));
-		Assert.assertTrue(populatedRegularParameters.isEmpty());
+		Assert.assertTrue(
+			populatedRegularParameters.toString(),
+			populatedRegularParameters.isEmpty());
 		Assert.assertEquals(-1, populateHttpServletRequest.getContentLength());
 		Assert.assertNull(populateHttpServletRequest.getContentType());
 		Assert.assertNull(populateHttpServletRequest.getInputStream());
 
 		// Upload servlet request with multipart and regular data
 
-		Map<String, List<String>> regularParameters = new HashMap<>();
-
 		String regularParameter = "regularParameter";
 
 		List<String> parameters = new ArrayList<>();
 
-		regularParameters.put(regularParameter, parameters);
+		Map<String, List<String>> regularParameters =
+			HashMapBuilder.<String, List<String>>put(
+				regularParameter, parameters
+			).build();
 
 		spiAgentRequest = new SPIAgentRequest(
 			new UploadServletRequestImpl(
@@ -318,10 +321,14 @@ public class SPIAgentRequestTest {
 		populatedRegularParameters =
 			uploadServletRequestImpl.getRegularParameterMap();
 
-		Assert.assertEquals(1, populatedFileParameters.size());
+		Assert.assertEquals(
+			populatedFileParameters.toString(), 1,
+			populatedFileParameters.size());
 		Assert.assertSame(
 			fileItems, populatedFileParameters.get(fileParameter));
-		Assert.assertEquals(1, populatedRegularParameters.size());
+		Assert.assertEquals(
+			populatedRegularParameters.toString(), 1,
+			populatedRegularParameters.size());
 		Assert.assertSame(
 			parameters, populatedRegularParameters.get(regularParameter));
 		Assert.assertEquals(-1, populateHttpServletRequest.getContentLength());
@@ -350,8 +357,12 @@ public class SPIAgentRequestTest {
 		populatedRegularParameters =
 			uploadServletRequestImpl.getRegularParameterMap();
 
-		Assert.assertTrue(populatedFileParameters.isEmpty());
-		Assert.assertEquals(1, populatedRegularParameters.size());
+		Assert.assertTrue(
+			populatedFileParameters.toString(),
+			populatedFileParameters.isEmpty());
+		Assert.assertEquals(
+			populatedRegularParameters.toString(), 1,
+			populatedRegularParameters.size());
 		Assert.assertSame(
 			parameters, populatedRegularParameters.get(regularParameter));
 		Assert.assertEquals(-1, populateHttpServletRequest.getContentLength());
@@ -447,7 +458,9 @@ public class SPIAgentRequestTest {
 		Map<String, Serializable> originalSessionAttributes =
 			spiAgentRequest.getOriginalSessionAttributes();
 
-		Assert.assertEquals(2, originalSessionAttributes.size());
+		Assert.assertEquals(
+			originalSessionAttributes.toString(), 2,
+			originalSessionAttributes.size());
 		Assert.assertEquals(
 			_SESSION_ATTRIBUTE_VALUE_1,
 			originalSessionAttributes.get(_SESSION_ATTRIBUTE_NAME_1));
@@ -472,7 +485,7 @@ public class SPIAgentRequestTest {
 
 		Cookie[] cookies = populatedHttpServletRequest.getCookies();
 
-		Assert.assertEquals(2, cookies.length);
+		Assert.assertEquals(Arrays.toString(cookies), 2, cookies.length);
 		Assert.assertTrue(CookieUtil.equals(_cookie1, cookies[0]));
 		Assert.assertTrue(CookieUtil.equals(_cookie2, cookies[1]));
 
@@ -492,60 +505,64 @@ public class SPIAgentRequestTest {
 		List<String> headerNames = ListUtil.fromEnumeration(
 			populatedHttpServletRequest.getHeaderNames());
 
-		Assert.assertEquals(3, headerNames.size());
+		Assert.assertEquals(headerNames.toString(), 3, headerNames.size());
 		Assert.assertTrue(
+			headerNames.toString(),
 			headerNames.contains(StringUtil.toLowerCase(_HEADER_NAME_1)));
 		Assert.assertTrue(
+			headerNames.toString(),
 			headerNames.contains(StringUtil.toLowerCase(_HEADER_NAME_2)));
 		Assert.assertTrue(
+			headerNames.toString(),
 			headerNames.contains(StringUtil.toLowerCase(_HEADER_NAME_3)));
 
 		List<String> headers = ListUtil.fromEnumeration(
 			populatedHttpServletRequest.getHeaders(_HEADER_NAME_1));
 
-		Assert.assertEquals(2, headers.size());
+		Assert.assertEquals(headers.toString(), 2, headers.size());
 		Assert.assertEquals(_HEADER_VALUE_1, headers.get(0));
 		Assert.assertEquals(_HEADER_VALUE_2, headers.get(1));
 
 		headers = ListUtil.fromEnumeration(
 			populatedHttpServletRequest.getHeaders(_HEADER_NAME_2));
 
-		Assert.assertEquals(2, headers.size());
+		Assert.assertEquals(headers.toString(), 2, headers.size());
 		Assert.assertEquals(_HEADER_VALUE_3, headers.get(0));
 		Assert.assertEquals(_HEADER_VALUE_4, headers.get(1));
 
 		headers = ListUtil.fromEnumeration(
 			populatedHttpServletRequest.getHeaders(_HEADER_NAME_3));
 
-		Assert.assertTrue(headers.isEmpty());
+		Assert.assertTrue(headers.toString(), headers.isEmpty());
 
 		headers = ListUtil.fromEnumeration(
 			populatedHttpServletRequest.getHeaders(_HEADER_NAME_4));
 
-		Assert.assertTrue(headers.isEmpty());
+		Assert.assertTrue(headers.toString(), headers.isEmpty());
 
 		// Parameters
 
 		Map<String, String[]> parameterMap =
 			populatedHttpServletRequest.getParameterMap();
 
-		Assert.assertEquals(3, parameterMap.size());
+		Assert.assertEquals(parameterMap.toString(), 3, parameterMap.size());
 
 		String[] parameter1 = parameterMap.get(_PARAMETER_NAME_1);
 
-		Assert.assertEquals(2, parameter1.length);
+		Assert.assertEquals(Arrays.toString(parameter1), 2, parameter1.length);
 		Assert.assertEquals(_PARAMETER_VALUE_1, parameter1[0]);
 		Assert.assertEquals(_PARAMETER_VALUE_2, parameter1[1]);
 
 		String[] parameter2 = parameterMap.get(_PARAMETER_NAME_2);
 
-		Assert.assertEquals(2, parameter2.length);
+		Assert.assertEquals(Arrays.toString(parameter2), 2, parameter2.length);
 		Assert.assertEquals(_PARAMETER_VALUE_3, parameter2[0]);
 		Assert.assertEquals(_PARAMETER_VALUE_4, parameter2[1]);
 
 		String[] parameter3 = parameterMap.get(_PARAMETER_NAME_3);
 
-		Assert.assertEquals(0, parameter3.length);
+		Assert.assertEquals(Arrays.toString(parameter3), 0, parameter3.length);
+
 		Assert.assertEquals(
 			_PARAMETER_VALUE_1,
 			populatedHttpServletRequest.getParameter(_PARAMETER_NAME_1));
@@ -560,29 +577,36 @@ public class SPIAgentRequestTest {
 		List<String> parameterNames = ListUtil.fromEnumeration(
 			populatedHttpServletRequest.getParameterNames());
 
-		Assert.assertEquals(3, parameterNames.size());
-		Assert.assertTrue(parameterNames.contains(_PARAMETER_NAME_1));
-		Assert.assertTrue(parameterNames.contains(_PARAMETER_NAME_2));
-		Assert.assertTrue(parameterNames.contains(_PARAMETER_NAME_3));
+		Assert.assertEquals(
+			parameterNames.toString(), 3, parameterNames.size());
+		Assert.assertTrue(
+			parameterNames.toString(),
+			parameterNames.contains(_PARAMETER_NAME_1));
+		Assert.assertTrue(
+			parameterNames.toString(),
+			parameterNames.contains(_PARAMETER_NAME_2));
+		Assert.assertTrue(
+			parameterNames.toString(),
+			parameterNames.contains(_PARAMETER_NAME_3));
 
 		parameter1 = populatedHttpServletRequest.getParameterValues(
 			_PARAMETER_NAME_1);
 
-		Assert.assertEquals(2, parameter1.length);
+		Assert.assertEquals(Arrays.toString(parameter1), 2, parameter1.length);
 		Assert.assertEquals(_PARAMETER_VALUE_1, parameter1[0]);
 		Assert.assertEquals(_PARAMETER_VALUE_2, parameter1[1]);
 
 		parameter2 = populatedHttpServletRequest.getParameterValues(
 			_PARAMETER_NAME_2);
 
-		Assert.assertEquals(2, parameter2.length);
+		Assert.assertEquals(Arrays.toString(parameter2), 2, parameter2.length);
 		Assert.assertEquals(_PARAMETER_VALUE_3, parameter2[0]);
 		Assert.assertEquals(_PARAMETER_VALUE_4, parameter2[1]);
 
 		parameter3 = populatedHttpServletRequest.getParameterValues(
 			_PARAMETER_NAME_3);
 
-		Assert.assertEquals(0, parameter3.length);
+		Assert.assertEquals(Arrays.toString(parameter3), 0, parameter3.length);
 
 		// Remote address, host, port, and user
 
@@ -619,9 +643,14 @@ public class SPIAgentRequestTest {
 		List<String> attributeNames = ListUtil.fromEnumeration(
 			mockHttpSession.getAttributeNames());
 
-		Assert.assertEquals(2, attributeNames.size());
-		Assert.assertTrue(attributeNames.contains(_SESSION_ATTRIBUTE_NAME_1));
-		Assert.assertTrue(attributeNames.contains(_SESSION_ATTRIBUTE_NAME_2));
+		Assert.assertEquals(
+			attributeNames.toString(), 2, attributeNames.size());
+		Assert.assertTrue(
+			attributeNames.toString(),
+			attributeNames.contains(_SESSION_ATTRIBUTE_NAME_1));
+		Assert.assertTrue(
+			attributeNames.toString(),
+			attributeNames.contains(_SESSION_ATTRIBUTE_NAME_2));
 
 		Assert.assertEquals(
 			_SESSION_ATTRIBUTE_VALUE_1,
@@ -760,7 +789,7 @@ public class SPIAgentRequestTest {
 		SPIAgentRequest.populatePortletSessionAttributes(
 			mockHttpServletRequest, mockHttpSession);
 
-		Assert.assertEquals(1, names.size());
+		Assert.assertEquals(names.toString(), 1, names.size());
 		Assert.assertEquals(WebKeys.PORTLET_SESSION, names.get(0));
 
 		Enumeration<String> enumeration =
@@ -805,7 +834,7 @@ public class SPIAgentRequestTest {
 		SPIAgentRequest.populatePortletSessionAttributes(
 			mockHttpServletRequest, mockHttpSession);
 
-		Assert.assertEquals(2, names.size());
+		Assert.assertEquals(names.toString(), 2, names.size());
 		Assert.assertEquals(WebKeys.PORTLET_SESSION, names.get(0));
 		Assert.assertEquals(WebKeys.SPI_AGENT_REQUEST, names.get(1));
 
@@ -905,11 +934,14 @@ public class SPIAgentRequestTest {
 
 		MockHttpSession originalHttpSession = new MockHttpSession();
 
-		Map<String, Serializable> portletSessionAttributes = new HashMap<>();
-
-		portletSessionAttributes.put("key1", "value1");
-		portletSessionAttributes.put("key2", "value2");
-		portletSessionAttributes.put("key3", "value3");
+		Map<String, Serializable> portletSessionAttributes =
+			HashMapBuilder.<String, Serializable>put(
+				"key1", "value1"
+			).put(
+				"key2", "value2"
+			).put(
+				"key3", "value3"
+			).build();
 
 		originalHttpSession.setAttribute(
 			WebKeys.PORTLET_SESSION_ATTRIBUTES.concat(servletContextName),

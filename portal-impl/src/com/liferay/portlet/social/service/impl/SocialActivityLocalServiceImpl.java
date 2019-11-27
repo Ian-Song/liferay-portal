@@ -139,8 +139,8 @@ public class SocialActivityLocalServiceImpl
 		activity.setExtraData(extraData);
 		activity.setReceiverUserId(receiverUserId);
 
-		AssetEntry assetEntry = assetEntryPersistence.fetchByC_C(
-			classNameId, classPK);
+		AssetEntry assetEntry = assetEntryLocalService.fetchEntry(
+			className, classPK);
 
 		activity.setAssetEntry(assetEntry);
 
@@ -204,30 +204,8 @@ public class SocialActivityLocalServiceImpl
 			String extraData, long receiverUserId)
 		throws PortalException {
 
-		if (ExportImportThreadLocal.isImportInProcess()) {
-			return;
-		}
-
-		Date createDate = new Date();
-
-		long classNameId = classNameLocalService.getClassNameId(className);
-
-		while (true) {
-			SocialActivity socialActivity =
-				socialActivityPersistence.fetchByG_U_CD_C_C_T_R(
-					groupId, userId, createDate.getTime(), classNameId, classPK,
-					type, receiverUserId);
-
-			if (socialActivity != null) {
-				createDate = new Date(createDate.getTime() + 1);
-			}
-			else {
-				break;
-			}
-		}
-
 		addActivity(
-			userId, groupId, createDate, className, classPK, type, extraData,
+			userId, groupId, new Date(), className, classPK, type, extraData,
 			receiverUserId);
 	}
 
@@ -262,6 +240,7 @@ public class SocialActivityLocalServiceImpl
 					SocialActivity.class.getName());
 
 				mirrorActivity.setActivityId(mirrorActivityId);
+
 				mirrorActivity.setMirrorActivityId(activity.getPrimaryKey());
 
 				socialActivityPersistence.update(mirrorActivity);
@@ -298,12 +277,11 @@ public class SocialActivityLocalServiceImpl
 			long classPK, int type, String extraData, long receiverUserId)
 		throws PortalException {
 
-		long classNameId = classNameLocalService.getClassNameId(className);
-
 		SocialActivity socialActivity =
 			socialActivityPersistence.fetchByG_U_CD_C_C_T_R(
-				groupId, userId, createDate.getTime(), classNameId, classPK,
-				type, receiverUserId);
+				groupId, userId, createDate.getTime(),
+				classNameLocalService.getClassNameId(className), classPK, type,
+				receiverUserId);
 
 		if (socialActivity != null) {
 			return;
@@ -337,10 +315,9 @@ public class SocialActivityLocalServiceImpl
 			String extraData, long receiverUserId)
 		throws PortalException {
 
-		long classNameId = classNameLocalService.getClassNameId(className);
-
 		int count = socialActivityPersistence.countByG_U_C_C_T_R(
-			groupId, userId, classNameId, classPK, type, receiverUserId);
+			groupId, userId, classNameLocalService.getClassNameId(className),
+			classPK, type, receiverUserId);
 
 		if (count > 0) {
 			return;
@@ -385,9 +362,8 @@ public class SocialActivityLocalServiceImpl
 	public void deleteActivities(String className, long classPK)
 		throws PortalException {
 
-		long classNameId = classNameLocalService.getClassNameId(className);
-
-		deleteActivities(classNameId, classPK);
+		deleteActivities(
+			classNameLocalService.getClassNameId(className), classPK);
 	}
 
 	/**
@@ -465,10 +441,9 @@ public class SocialActivityLocalServiceImpl
 	public SocialActivity fetchFirstActivity(
 		String className, long classPK, int type) {
 
-		long classNameId = classNameLocalService.getClassNameId(className);
-
 		return socialActivityPersistence.fetchByC_C_T_First(
-			classNameId, classPK, type, null);
+			classNameLocalService.getClassNameId(className), classPK, type,
+			null);
 	}
 
 	/**
@@ -553,10 +528,9 @@ public class SocialActivityLocalServiceImpl
 		long mirrorActivityId, String className, long classPK, int start,
 		int end) {
 
-		long classNameId = classNameLocalService.getClassNameId(className);
-
 		return getActivities(
-			mirrorActivityId, classNameId, classPK, start, end);
+			mirrorActivityId, classNameLocalService.getClassNameId(className),
+			classPK, start, end);
 	}
 
 	/**
@@ -581,9 +555,8 @@ public class SocialActivityLocalServiceImpl
 	public List<SocialActivity> getActivities(
 		String className, int start, int end) {
 
-		long classNameId = classNameLocalService.getClassNameId(className);
-
-		return getActivities(classNameId, start, end);
+		return getActivities(
+			classNameLocalService.getClassNameId(className), start, end);
 	}
 
 	/**
@@ -596,6 +569,17 @@ public class SocialActivityLocalServiceImpl
 	@Override
 	public int getActivitiesCount(long classNameId) {
 		return socialActivityPersistence.countByClassNameId(classNameId);
+	}
+
+	@Override
+	public int getActivitiesCount(
+		long userId, long groupId, Date createDate, String className,
+		long classPK, int type, long receiverUserId) {
+
+		return socialActivityPersistence.countByG_U_CD_C_C_T_R(
+			groupId, userId, createDate.getTime(),
+			classNameLocalService.getClassNameId(className), classPK, type,
+			receiverUserId);
 	}
 
 	/**
@@ -630,9 +614,9 @@ public class SocialActivityLocalServiceImpl
 	public int getActivitiesCount(
 		long mirrorActivityId, String className, long classPK) {
 
-		long classNameId = classNameLocalService.getClassNameId(className);
-
-		return getActivitiesCount(mirrorActivityId, classNameId, classPK);
+		return getActivitiesCount(
+			mirrorActivityId, classNameLocalService.getClassNameId(className),
+			classPK);
 	}
 
 	/**
@@ -643,9 +627,8 @@ public class SocialActivityLocalServiceImpl
 	 */
 	@Override
 	public int getActivitiesCount(String className) {
-		long classNameId = classNameLocalService.getClassNameId(className);
-
-		return getActivitiesCount(classNameId);
+		return getActivitiesCount(
+			classNameLocalService.getClassNameId(className));
 	}
 
 	/**
@@ -852,10 +835,10 @@ public class SocialActivityLocalServiceImpl
 	 * <p>
 	 * Useful when paginating results. Returns a maximum of <code>end -
 	 * start</code> instances. <code>start</code> and <code>end</code> are not
-	 * primary keys, they are indexes in the result set. Thus, <>0</code> refers
-	 * to the first result in the set. Setting both <code>start</code> and
-	 * <code>end</code> to {@link QueryUtil#ALL_POS} will return the full result
-	 * set.
+	 * primary keys, they are indexes in the result set. Thus, <code>0</code>
+	 * refers to the first result in the set. Setting both <code>start</code>
+	 * and <code>end</code> to {@link QueryUtil#ALL_POS} will return the full
+	 * result set.
 	 * </p>
 	 *
 	 * @param  userId the primary key of the user

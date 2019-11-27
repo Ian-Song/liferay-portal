@@ -14,19 +14,21 @@
 
 package com.liferay.portal.fabric.netty.repository;
 
+import com.liferay.petra.concurrent.AsyncBroker;
+import com.liferay.petra.concurrent.NoticeableFuture;
+import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.fabric.netty.codec.serialization.AnnotatedObjectDecoder;
 import com.liferay.portal.fabric.netty.fileserver.FileHelperUtil;
 import com.liferay.portal.fabric.netty.fileserver.FileResponse;
 import com.liferay.portal.fabric.netty.fileserver.handlers.FileResponseChannelHandler;
 import com.liferay.portal.fabric.netty.fileserver.handlers.FileServerTestUtil;
 import com.liferay.portal.fabric.netty.util.NettyUtilAdvice;
-import com.liferay.portal.kernel.concurrent.AsyncBroker;
-import com.liferay.portal.kernel.concurrent.NoticeableFuture;
 import com.liferay.portal.kernel.test.CaptureHandler;
 import com.liferay.portal.kernel.test.JDKLoggerTestUtil;
 import com.liferay.portal.kernel.test.rule.AggregateTestRule;
 import com.liferay.portal.kernel.test.rule.CodeCoverageAssertor;
 import com.liferay.portal.kernel.test.rule.NewEnv;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.test.rule.AdviseWith;
 import com.liferay.portal.test.rule.AspectJNewEnvTestRule;
 
@@ -46,7 +48,6 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -74,7 +75,7 @@ public class NettyRepositoryTest {
 	@Rule
 	public static final AggregateTestRule aggregateTestRule =
 		new AggregateTestRule(
-			CodeCoverageAssertor.INSTANCE, AspectJNewEnvTestRule.INSTANCE);
+			AspectJNewEnvTestRule.INSTANCE, CodeCoverageAssertor.INSTANCE);
 
 	@Before
 	public void setUp() throws IOException {
@@ -132,6 +133,7 @@ public class NettyRepositoryTest {
 		Assert.assertSame(_repositoryPath, nettyRepository.getRepositoryPath());
 		Assert.assertEquals(Long.MAX_VALUE, nettyRepository.getFileTimeout);
 		Assert.assertNotNull(nettyRepository.pathMap);
+
 		Assert.assertTrue(
 			_annotatedObjectDecoder.removeFirst() instanceof
 				FileResponseChannelHandler);
@@ -166,15 +168,16 @@ public class NettyRepositoryTest {
 			Path localFilePath = noticeableFuture.get();
 
 			Assert.assertNotNull(localFilePath);
+
 			Assert.assertTrue(Files.notExists(tempFilePath));
 			Assert.assertTrue(Files.exists(localFilePath));
-			Assert.assertEquals(1, pathMap.size());
+			Assert.assertEquals(pathMap.toString(), 1, pathMap.size());
 			Assert.assertSame(localFilePath, pathMap.get(remoteFilePath));
 
 			_nettyRepository.dispose(false);
 
 			Assert.assertTrue(Files.notExists(localFilePath));
-			Assert.assertTrue(pathMap.isEmpty());
+			Assert.assertTrue(pathMap.toString(), pathMap.isEmpty());
 			Assert.assertTrue(Files.exists(_repositoryPath));
 
 			_nettyRepository.dispose(true);
@@ -183,7 +186,7 @@ public class NettyRepositoryTest {
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertTrue(logRecords.isEmpty());
+			Assert.assertTrue(logRecords.toString(), logRecords.isEmpty());
 		}
 	}
 
@@ -225,16 +228,17 @@ public class NettyRepositoryTest {
 			Assert.assertSame(localFilePath, noticeableFuture2.get());
 			Assert.assertSame(localFilePath, fileResponse.getLocalFile());
 			Assert.assertNotNull(localFilePath);
+
 			Assert.assertTrue(Files.notExists(tempFilePath));
 			Assert.assertTrue(Files.exists(localFilePath));
-			Assert.assertEquals(1, pathMap.size());
+			Assert.assertEquals(pathMap.toString(), 1, pathMap.size());
 			Assert.assertSame(localFilePath, pathMap.get(remoteFilePath));
 
 			Files.delete(localFilePath);
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertEquals(4, logRecords.size());
+			Assert.assertEquals(logRecords.toString(), 4, logRecords.size());
 
 			LogRecord logRecord = logRecords.get(0);
 
@@ -251,15 +255,17 @@ public class NettyRepositoryTest {
 			logRecord = logRecords.get(2);
 
 			Assert.assertEquals(
-				"Fetched remote file " + remoteFilePath + " to " +
-					localFilePath,
+				StringBundler.concat(
+					"Fetched remote file ", remoteFilePath, " to ",
+					localFilePath),
 				logRecord.getMessage());
 
 			logRecord = logRecords.get(3);
 
 			Assert.assertEquals(
-				"Fetched remote file " + remoteFilePath + " to " +
-					localFilePath,
+				StringBundler.concat(
+					"Fetched remote file ", remoteFilePath, " to ",
+					localFilePath),
 				logRecord.getMessage());
 		}
 		finally {
@@ -300,11 +306,11 @@ public class NettyRepositoryTest {
 			Assert.assertTrue(Files.notExists(tempFilePath));
 			Assert.assertTrue(Files.exists(localFilePath1));
 			Assert.assertTrue(Files.exists(localFilePath2));
-			Assert.assertTrue(pathMap.isEmpty());
+			Assert.assertTrue(pathMap.toString(), pathMap.isEmpty());
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertTrue(logRecords.isEmpty());
+			Assert.assertTrue(logRecords.toString(), logRecords.isEmpty());
 		}
 	}
 
@@ -371,7 +377,7 @@ public class NettyRepositoryTest {
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertEquals(1, logRecords.size());
+			Assert.assertEquals(logRecords.toString(), 1, logRecords.size());
 
 			LogRecord logRecord = logRecords.get(0);
 
@@ -399,7 +405,7 @@ public class NettyRepositoryTest {
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertTrue(logRecords.isEmpty());
+			Assert.assertTrue(logRecords.toString(), logRecords.isEmpty());
 		}
 	}
 
@@ -433,7 +439,7 @@ public class NettyRepositoryTest {
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertEquals(2, logRecords.size());
+			Assert.assertEquals(logRecords.toString(), 2, logRecords.size());
 
 			LogRecord logRecord = logRecords.get(0);
 
@@ -444,9 +450,10 @@ public class NettyRepositoryTest {
 			logRecord = logRecords.get(1);
 
 			Assert.assertEquals(
-				"Remote file " + remoteFilePath +
-					" is not modified, use cached local file " +
-						cachedLocalFilePath,
+				StringBundler.concat(
+					"Remote file ", remoteFilePath,
+					" is not modified, use cached local file ",
+					cachedLocalFilePath),
 				logRecord.getMessage());
 		}
 
@@ -469,22 +476,23 @@ public class NettyRepositoryTest {
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertTrue(logRecords.isEmpty());
+			Assert.assertTrue(logRecords.toString(), logRecords.isEmpty());
 		}
 	}
 
 	@AdviseWith(adviceClasses = NettyUtilAdvice.class)
 	@Test
 	public void testGetFiles() throws Exception {
-		Map<Path, Path> pathMap = new HashMap<>();
-
 		Path remoteFilePath1 = Paths.get("remoteFile1");
 		Path remoteFilePath2 = Paths.get("remoteFile2");
 		Path localFilePath = FileServerTestUtil.registerForCleanUp(
 			Paths.get("localFile1"));
 
-		pathMap.put(remoteFilePath1, localFilePath);
-		pathMap.put(remoteFilePath2, Paths.get("localFile2"));
+		Map<Path, Path> pathMap = HashMapBuilder.<Path, Path>put(
+			remoteFilePath1, localFilePath
+		).put(
+			remoteFilePath2, Paths.get("localFile2")
+		).build();
 
 		NoticeableFuture<Map<Path, Path>> noticeableFuture =
 			_nettyRepository.getFiles(_embeddedChannel, pathMap, true);
@@ -513,7 +521,7 @@ public class NettyRepositoryTest {
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertEquals(1, logRecords.size());
+			Assert.assertEquals(logRecords.toString(), 1, logRecords.size());
 
 			LogRecord logRecord = logRecords.get(0);
 
@@ -523,19 +531,20 @@ public class NettyRepositoryTest {
 
 		Map<Path, Path> resultPathMap = noticeableFuture.get();
 
-		Assert.assertEquals(1, resultPathMap.size());
+		Assert.assertEquals(resultPathMap.toString(), 1, resultPathMap.size());
 		Assert.assertEquals(localFilePath, resultPathMap.get(remoteFilePath1));
 	}
 
 	@AdviseWith(adviceClasses = NettyUtilAdvice.class)
 	@Test
 	public void testGetFilesCancelled() {
-		Map<Path, Path> pathMap = new HashMap<>();
-
 		Path remoteFilePath1 = Paths.get("remoteFile1");
 
-		pathMap.put(remoteFilePath1, Paths.get("localFile1"));
-		pathMap.put(Paths.get("remoteFile2"), Paths.get("requestFile2"));
+		Map<Path, Path> pathMap = HashMapBuilder.<Path, Path>put(
+			remoteFilePath1, Paths.get("localFile1")
+		).put(
+			Paths.get("remoteFile2"), Paths.get("requestFile2")
+		).build();
 
 		NoticeableFuture<Map<Path, Path>> noticeableFuture =
 			_nettyRepository.getFiles(_embeddedChannel, pathMap, true);
@@ -560,11 +569,11 @@ public class NettyRepositoryTest {
 	)
 	@Test
 	public void testGetFilesCovertCausedException() throws Exception {
-		Map<Path, Path> pathMap = new HashMap<>();
-
 		Path remoteFilePath = Paths.get("remoteFile");
 
-		pathMap.put(remoteFilePath, Paths.get("localFile"));
+		Map<Path, Path> pathMap = HashMapBuilder.<Path, Path>put(
+			remoteFilePath, Paths.get("localFile")
+		).build();
 
 		NoticeableFuture<Map<Path, Path>> noticeableFuture =
 			_nettyRepository.getFiles(_embeddedChannel, pathMap, true);
@@ -586,7 +595,7 @@ public class NettyRepositoryTest {
 
 			List<LogRecord> logRecords = captureHandler.getLogRecords();
 
-			Assert.assertEquals(1, logRecords.size());
+			Assert.assertEquals(logRecords.toString(), 1, logRecords.size());
 
 			LogRecord logRecord = logRecords.get(0);
 
@@ -618,12 +627,13 @@ public class NettyRepositoryTest {
 	@AdviseWith(adviceClasses = NettyUtilAdvice.class)
 	@Test
 	public void testGetFilesExecutionException() throws Exception {
-		Map<Path, Path> pathMap = new HashMap<>();
-
 		Path remoteFilePath1 = Paths.get("remoteFile1");
 
-		pathMap.put(remoteFilePath1, Paths.get("requestFile1"));
-		pathMap.put(Paths.get("remoteFile2"), Paths.get("requestFile2"));
+		Map<Path, Path> pathMap = HashMapBuilder.<Path, Path>put(
+			remoteFilePath1, Paths.get("requestFile1")
+		).put(
+			Paths.get("remoteFile2"), Paths.get("requestFile2")
+		).build();
 
 		NoticeableFuture<Map<Path, Path>> noticeableFuture =
 			_nettyRepository.getFiles(_embeddedChannel, pathMap, true);
@@ -686,7 +696,7 @@ public class NettyRepositoryTest {
 		}
 
 		@Around(
-			"execution(public void com.liferay.portal.kernel.concurrent." +
+			"execution(public void com.liferay.petra.concurrent." +
 				"DefaultNoticeableFuture.set(Object))"
 		)
 		public void set(ProceedingJoinPoint proceedingJoinPoint)
@@ -787,7 +797,7 @@ public class NettyRepositoryTest {
 					Assert.assertSame(exception, throwable.getCause());
 				}
 
-				Assert.assertTrue(logRecords.isEmpty());
+				Assert.assertTrue(logRecords.toString(), logRecords.isEmpty());
 			}
 		}
 	}

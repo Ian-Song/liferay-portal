@@ -21,6 +21,7 @@ import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.model.ColorScheme;
 import com.liferay.portal.kernel.model.Layout;
 import com.liferay.portal.kernel.model.Theme;
+import com.liferay.portal.kernel.service.LayoutLocalServiceUtil;
 import com.liferay.portal.kernel.service.ThemeLocalServiceUtil;
 import com.liferay.portal.kernel.theme.ThemeDisplay;
 import com.liferay.portal.kernel.util.ColorSchemeFactoryUtil;
@@ -36,11 +37,13 @@ import javax.servlet.http.HttpServletResponse;
 public class ThemeServicePreAction extends Action {
 
 	@Override
-	public void run(HttpServletRequest request, HttpServletResponse response)
+	public void run(
+			HttpServletRequest httpServletRequest,
+			HttpServletResponse httpServletResponse)
 		throws ActionException {
 
 		try {
-			servicePre(request, response);
+			servicePre(httpServletRequest, httpServletResponse);
 		}
 		catch (Exception e) {
 			throw new ActionException(e);
@@ -48,14 +51,15 @@ public class ThemeServicePreAction extends Action {
 	}
 
 	protected void servicePre(
-			HttpServletRequest request, HttpServletResponse response)
+			HttpServletRequest httpServletRequest,
+			HttpServletResponse httpServletResponse)
 		throws Exception {
 
-		ThemeDisplay themeDisplay = (ThemeDisplay)request.getAttribute(
-			WebKeys.THEME_DISPLAY);
+		ThemeDisplay themeDisplay =
+			(ThemeDisplay)httpServletRequest.getAttribute(
+				WebKeys.THEME_DISPLAY);
 
 		Theme theme = themeDisplay.getTheme();
-		ColorScheme colorScheme = themeDisplay.getColorScheme();
 
 		if (theme != null) {
 			if (_log.isInfoEnabled()) {
@@ -65,11 +69,22 @@ public class ThemeServicePreAction extends Action {
 			return;
 		}
 
+		ColorScheme colorScheme = themeDisplay.getColorScheme();
 		Layout layout = themeDisplay.getLayout();
 
 		if (layout != null) {
 			theme = layout.getTheme();
 			colorScheme = layout.getColorScheme();
+
+			if (layout.getMasterLayoutPlid() > 0) {
+				Layout masterLayout = LayoutLocalServiceUtil.fetchLayout(
+					layout.getMasterLayoutPlid());
+
+				if (masterLayout != null) {
+					theme = masterLayout.getTheme();
+					colorScheme = masterLayout.getColorScheme();
+				}
+			}
 		}
 		else {
 			String themeId = ThemeFactoryUtil.getDefaultRegularThemeId(
@@ -79,12 +94,13 @@ public class ThemeServicePreAction extends Action {
 
 			theme = ThemeLocalServiceUtil.getTheme(
 				themeDisplay.getCompanyId(), themeId);
+
 			colorScheme = ThemeLocalServiceUtil.getColorScheme(
 				themeDisplay.getCompanyId(), theme.getThemeId(), colorSchemeId);
 		}
 
-		request.setAttribute(WebKeys.COLOR_SCHEME, colorScheme);
-		request.setAttribute(WebKeys.THEME, theme);
+		httpServletRequest.setAttribute(WebKeys.COLOR_SCHEME, colorScheme);
+		httpServletRequest.setAttribute(WebKeys.THEME, theme);
 
 		themeDisplay.setLookAndFeel(theme, colorScheme);
 	}

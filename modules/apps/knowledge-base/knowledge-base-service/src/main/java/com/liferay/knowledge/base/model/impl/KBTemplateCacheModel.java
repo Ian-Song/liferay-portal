@@ -14,14 +14,11 @@
 
 package com.liferay.knowledge.base.model.impl;
 
-import aQute.bnd.annotation.ProviderType;
-
 import com.liferay.knowledge.base.model.KBTemplate;
-
+import com.liferay.petra.lang.HashUtil;
+import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.model.CacheModel;
-import com.liferay.portal.kernel.util.HashUtil;
-import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
+import com.liferay.portal.kernel.model.MVCCModel;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -34,12 +31,11 @@ import java.util.Date;
  * The cache model class for representing KBTemplate in entity cache.
  *
  * @author Brian Wing Shun Chan
- * @see KBTemplate
  * @generated
  */
-@ProviderType
-public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
-	Externalizable {
+public class KBTemplateCacheModel
+	implements CacheModel<KBTemplate>, Externalizable, MVCCModel {
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) {
@@ -52,7 +48,9 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 
 		KBTemplateCacheModel kbTemplateCacheModel = (KBTemplateCacheModel)obj;
 
-		if (kbTemplateId == kbTemplateCacheModel.kbTemplateId) {
+		if ((kbTemplateId == kbTemplateCacheModel.kbTemplateId) &&
+			(mvccVersion == kbTemplateCacheModel.mvccVersion)) {
+
 			return true;
 		}
 
@@ -61,14 +59,28 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 
 	@Override
 	public int hashCode() {
-		return HashUtil.hash(0, kbTemplateId);
+		int hashCode = HashUtil.hash(0, kbTemplateId);
+
+		return HashUtil.hash(hashCode, mvccVersion);
+	}
+
+	@Override
+	public long getMvccVersion() {
+		return mvccVersion;
+	}
+
+	@Override
+	public void setMvccVersion(long mvccVersion) {
+		this.mvccVersion = mvccVersion;
 	}
 
 	@Override
 	public String toString() {
-		StringBundler sb = new StringBundler(23);
+		StringBundler sb = new StringBundler(25);
 
-		sb.append("{uuid=");
+		sb.append("{mvccVersion=");
+		sb.append(mvccVersion);
+		sb.append(", uuid=");
 		sb.append(uuid);
 		sb.append(", kbTemplateId=");
 		sb.append(kbTemplateId);
@@ -99,8 +111,10 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 	public KBTemplate toEntityModel() {
 		KBTemplateImpl kbTemplateImpl = new KBTemplateImpl();
 
+		kbTemplateImpl.setMvccVersion(mvccVersion);
+
 		if (uuid == null) {
-			kbTemplateImpl.setUuid(StringPool.BLANK);
+			kbTemplateImpl.setUuid("");
 		}
 		else {
 			kbTemplateImpl.setUuid(uuid);
@@ -112,7 +126,7 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 		kbTemplateImpl.setUserId(userId);
 
 		if (userName == null) {
-			kbTemplateImpl.setUserName(StringPool.BLANK);
+			kbTemplateImpl.setUserName("");
 		}
 		else {
 			kbTemplateImpl.setUserName(userName);
@@ -133,14 +147,14 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 		}
 
 		if (title == null) {
-			kbTemplateImpl.setTitle(StringPool.BLANK);
+			kbTemplateImpl.setTitle("");
 		}
 		else {
 			kbTemplateImpl.setTitle(title);
 		}
 
 		if (content == null) {
-			kbTemplateImpl.setContent(StringPool.BLANK);
+			kbTemplateImpl.setContent("");
 		}
 		else {
 			kbTemplateImpl.setContent(content);
@@ -160,6 +174,7 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 
 	@Override
 	public void readExternal(ObjectInput objectInput) throws IOException {
+		mvccVersion = objectInput.readLong();
 		uuid = objectInput.readUTF();
 
 		kbTemplateId = objectInput.readLong();
@@ -178,10 +193,11 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 	}
 
 	@Override
-	public void writeExternal(ObjectOutput objectOutput)
-		throws IOException {
+	public void writeExternal(ObjectOutput objectOutput) throws IOException {
+		objectOutput.writeLong(mvccVersion);
+
 		if (uuid == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(uuid);
@@ -196,7 +212,7 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 		objectOutput.writeLong(userId);
 
 		if (userName == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(userName);
@@ -206,14 +222,14 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 		objectOutput.writeLong(modifiedDate);
 
 		if (title == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(title);
 		}
 
 		if (content == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(content);
@@ -222,6 +238,7 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 		objectOutput.writeLong(lastPublishDate);
 	}
 
+	public long mvccVersion;
 	public String uuid;
 	public long kbTemplateId;
 	public long groupId;
@@ -233,4 +250,5 @@ public class KBTemplateCacheModel implements CacheModel<KBTemplate>,
 	public String title;
 	public String content;
 	public long lastPublishDate;
+
 }

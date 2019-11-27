@@ -14,73 +14,35 @@
 
 package com.liferay.portal.spring.transaction;
 
-import com.liferay.portal.kernel.log.Log;
-import com.liferay.portal.kernel.log.LogFactoryUtil;
-
-import org.aopalliance.intercept.MethodInvocation;
-
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * @author Shuyang Zhou
  */
-public class CounterTransactionExecutor
-	implements TransactionExecutor, TransactionHandler {
+public class CounterTransactionExecutor extends BaseTransactionExecutor {
 
-	@Override
-	public void commit(
-		PlatformTransactionManager platformTransactionManager,
-		TransactionAttributeAdapter transactionAttributeAdapter,
-		TransactionStatusAdapter transactionStatusAdapter) {
+	public CounterTransactionExecutor(
+		PlatformTransactionManager platformTransactionManager) {
 
-		try {
-			platformTransactionManager.commit(
-				transactionStatusAdapter.getTransactionStatus());
-		}
-		catch (RuntimeException re) {
-			_log.error(
-				"Application exception overridden by commit exception", re);
-
-			throw re;
-		}
-		catch (Error e) {
-			_log.error("Application exception overridden by commit error", e);
-
-			throw e;
-		}
+		_platformTransactionManager = platformTransactionManager;
 	}
 
 	@Override
-	public Object execute(
-			PlatformTransactionManager platformTransactionManager,
-			TransactionAttributeAdapter transactionAttributeAdapter,
-			MethodInvocation methodInvocation)
-		throws Throwable {
+	public void commit(
+		TransactionAttributeAdapter transactionAttributeAdapter,
+		TransactionStatusAdapter transactionStatusAdapter) {
 
-		TransactionStatusAdapter transactionStatusAdapter = start(
-			platformTransactionManager, transactionAttributeAdapter);
+		_platformTransactionManager.commit(
+			transactionStatusAdapter.getTransactionStatus());
+	}
 
-		Object returnValue = null;
-
-		try {
-			returnValue = methodInvocation.proceed();
-		}
-		catch (Throwable throwable) {
-			rollback(
-				platformTransactionManager, throwable,
-				transactionAttributeAdapter, transactionStatusAdapter);
-		}
-
-		commit(
-			platformTransactionManager, transactionAttributeAdapter,
-			transactionStatusAdapter);
-
-		return returnValue;
+	@Override
+	public PlatformTransactionManager getPlatformTransactionManager() {
+		return _platformTransactionManager;
 	}
 
 	@Override
 	public void rollback(
-			PlatformTransactionManager platformTransactionManager,
 			Throwable throwable,
 			TransactionAttributeAdapter transactionAttributeAdapter,
 			TransactionStatusAdapter transactionStatusAdapter)
@@ -88,31 +50,25 @@ public class CounterTransactionExecutor
 
 		if (transactionAttributeAdapter.rollbackOn(throwable)) {
 			try {
-				platformTransactionManager.rollback(
+				_platformTransactionManager.rollback(
 					transactionStatusAdapter.getTransactionStatus());
 			}
-			catch (RuntimeException re) {
-				re.addSuppressed(throwable);
+			catch (Throwable t) {
+				t.addSuppressed(throwable);
 
-				_log.error(
-					"Application exception overridden by rollback exception",
-					re);
-
-				throw re;
-			}
-			catch (Error e) {
-				e.addSuppressed(throwable);
-
-				_log.error(
-					"Application exception overridden by rollback error", e);
-
-				throw e;
+				throw t;
 			}
 		}
 		else {
-			commit(
-				platformTransactionManager, transactionAttributeAdapter,
-				transactionStatusAdapter);
+			try {
+				_platformTransactionManager.commit(
+					transactionStatusAdapter.getTransactionStatus());
+			}
+			catch (Throwable t) {
+				t.addSuppressed(throwable);
+
+				throw t;
+			}
 		}
 
 		throw throwable;
@@ -120,15 +76,13 @@ public class CounterTransactionExecutor
 
 	@Override
 	public TransactionStatusAdapter start(
-		PlatformTransactionManager platformTransactionManager,
 		TransactionAttributeAdapter transactionAttributeAdapter) {
 
 		return new TransactionStatusAdapter(
-			platformTransactionManager.getTransaction(
+			_platformTransactionManager.getTransaction(
 				transactionAttributeAdapter));
 	}
 
-	private static final Log _log = LogFactoryUtil.getLog(
-		CounterTransactionExecutor.class);
+	private final PlatformTransactionManager _platformTransactionManager;
 
 }

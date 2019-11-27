@@ -16,9 +16,11 @@ package com.liferay.opensocial.shindig.service;
 
 import com.liferay.opensocial.shindig.util.HttpServletRequestThreadLocal;
 import com.liferay.opensocial.shindig.util.SerializerUtil;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.json.JSONArray;
 import com.liferay.portal.kernel.json.JSONFactoryUtil;
 import com.liferay.portal.kernel.json.JSONObject;
+import com.liferay.portal.kernel.json.JSONUtil;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.model.Company;
@@ -29,7 +31,6 @@ import com.liferay.portal.kernel.service.ServiceContextFactory;
 import com.liferay.portal.kernel.service.UserLocalServiceUtil;
 import com.liferay.portal.kernel.theme.ThemeDisplay;
 import com.liferay.portal.kernel.util.GetterUtil;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.WebKeys;
 import com.liferay.social.kernel.model.SocialActivity;
 import com.liferay.social.kernel.model.SocialActivityFeedEntry;
@@ -40,7 +41,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Future;
 
@@ -55,7 +55,6 @@ import org.apache.shindig.social.core.model.ActivityImpl;
 import org.apache.shindig.social.core.model.MediaItemImpl;
 import org.apache.shindig.social.opensocial.model.Activity;
 import org.apache.shindig.social.opensocial.model.MediaItem;
-import org.apache.shindig.social.opensocial.model.MediaItem.Type;
 import org.apache.shindig.social.opensocial.spi.ActivityService;
 import org.apache.shindig.social.opensocial.spi.CollectionOptions;
 import org.apache.shindig.social.opensocial.spi.GroupId;
@@ -161,7 +160,7 @@ public class LiferayActivityService implements ActivityService {
 			activities.addAll(personActivities);
 		}
 
-		return new RestfulCollection<Activity>(
+		return new RestfulCollection<>(
 			activities, collectionOptions.getFirst(), activities.size(),
 			collectionOptions.getMax());
 	}
@@ -178,7 +177,7 @@ public class LiferayActivityService implements ActivityService {
 
 		List<Activity> activities = getActivities(themeDisplay, userIdLong);
 
-		return new RestfulCollection<Activity>(
+		return new RestfulCollection<>(
 			activities, collectionOptions.getFirst(), activities.size(),
 			collectionOptions.getMax());
 	}
@@ -302,13 +301,14 @@ public class LiferayActivityService implements ActivityService {
 				String.valueOf(socialActivity.getClassPK()),
 				String.valueOf(socialActivity.getUserId()));
 
-			HttpServletRequest request =
+			HttpServletRequest httpServletRequest =
 				HttpServletRequestThreadLocal.getHttpServletRequest();
 
-			request.setAttribute(WebKeys.THEME_DISPLAY, themeDisplay);
+			httpServletRequest.setAttribute(
+				WebKeys.THEME_DISPLAY, themeDisplay);
 
 			ServiceContext serviceContext = ServiceContextFactory.getInstance(
-				request);
+				httpServletRequest);
 
 			serviceContext.setCompanyId(themeDisplay.getCompanyId());
 			serviceContext.setUserId(themeDisplay.getUserId());
@@ -349,13 +349,13 @@ public class LiferayActivityService implements ActivityService {
 		List<MediaItem> mediaItems = new ArrayList<>();
 
 		for (int i = 0; i < mediaItemsJSONArray.length(); i++) {
-			JSONObject mediaItemsJsonObject = mediaItemsJSONArray.getJSONObject(
+			JSONObject mediaItemsJSONObject = mediaItemsJSONArray.getJSONObject(
 				i);
 
 			MediaItem mediaItem = new MediaItemImpl(
-				mediaItemsJsonObject.getString("mimeType"),
-				Type.valueOf(mediaItemsJsonObject.getString("type")),
-				mediaItemsJsonObject.getString("url"));
+				mediaItemsJSONObject.getString("mimeType"),
+				MediaItem.Type.valueOf(mediaItemsJSONObject.getString("type")),
+				mediaItemsJSONObject.getString("url"));
 
 			mediaItems.add(mediaItem);
 		}
@@ -371,15 +371,15 @@ public class LiferayActivityService implements ActivityService {
 		JSONArray mediaItemsJSONArray = JSONFactoryUtil.createJSONArray();
 
 		for (MediaItem mediaItem : mediaItems) {
-			JSONObject mediaItemsJsonObject =
-				JSONFactoryUtil.createJSONObject();
+			JSONObject mediaItemsJSONObject = JSONUtil.put(
+				"mimeType", mediaItem.getMimeType()
+			).put(
+				"type", String.valueOf(mediaItem.getType())
+			).put(
+				"url", mediaItem.getUrl()
+			);
 
-			mediaItemsJsonObject.put("mimeType", mediaItem.getMimeType());
-			mediaItemsJsonObject.put(
-				"type", String.valueOf(mediaItem.getType()));
-			mediaItemsJsonObject.put("url", mediaItem.getUrl());
-
-			mediaItemsJSONArray.put(mediaItemsJsonObject);
+			mediaItemsJSONArray.put(mediaItemsJSONObject);
 		}
 
 		return mediaItemsJSONArray;
@@ -419,14 +419,11 @@ public class LiferayActivityService implements ActivityService {
 
 		JSONArray templateParamsJSONArray = JSONFactoryUtil.createJSONArray();
 
-		for (Entry<String, String> entry : map.entrySet()) {
-			JSONObject templateParamJSONObject =
-				JSONFactoryUtil.createJSONObject();
-
+		for (Map.Entry<String, String> entry : map.entrySet()) {
 			String name = entry.getKey();
-			String value = entry.getValue();
 
-			templateParamJSONObject.put(name, value);
+			JSONObject templateParamJSONObject = JSONUtil.put(
+				name, entry.getValue());
 
 			templateParamsJSONArray.put(templateParamJSONObject);
 		}

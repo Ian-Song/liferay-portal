@@ -14,7 +14,7 @@
 
 package com.liferay.exportimport.kernel.lifecycle;
 
-import com.liferay.portal.kernel.util.ProxyFactory;
+import com.liferay.portal.kernel.util.ServiceProxyFactory;
 
 import java.io.Serializable;
 
@@ -24,15 +24,18 @@ import java.io.Serializable;
 public class ExportImportLifecycleEventFactoryUtil {
 
 	public static ExportImportLifecycleEvent create(
-		int code, int processFlag, Serializable... attributes) {
+		int code, int processFlag, String processId,
+		Serializable... attributes) {
 
 		return _exportImportLifecycleEventFactory.create(
-			code, processFlag, attributes);
+			code, processFlag, processId, attributes);
 	}
 
-	private static final ExportImportLifecycleEventFactory
+	private static volatile ExportImportLifecycleEventFactory
 		_exportImportLifecycleEventFactory =
-			ProxyFactory.newServiceTrackedInstance(
-				ExportImportLifecycleEventFactory.class);
+			ServiceProxyFactory.newServiceTrackedInstance(
+				ExportImportLifecycleEventFactory.class,
+				ExportImportLifecycleEventFactoryUtil.class,
+				"_exportImportLifecycleEventFactory", false);
 
 }

@@ -14,8 +14,6 @@
 
 package com.liferay.sync.model.impl;
 
-import aQute.bnd.annotation.ProviderType;
-
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.util.PrefsPropsUtil;
 import com.liferay.sync.SyncClientMinBuildException;
@@ -23,13 +21,13 @@ import com.liferay.sync.SyncServicesUnavailableException;
 import com.liferay.sync.constants.SyncDeviceConstants;
 import com.liferay.sync.exception.SyncDeviceActiveException;
 import com.liferay.sync.exception.SyncDeviceWipeException;
+import com.liferay.sync.internal.configuration.SyncServiceConfigurationValues;
+import com.liferay.sync.service.SyncDeviceLocalServiceUtil;
 import com.liferay.sync.service.configuration.SyncServiceConfigurationKeys;
-import com.liferay.sync.service.configuration.SyncServiceConfigurationValues;
 
 /**
  * @author Shinn Lok
  */
-@ProviderType
 public class SyncDeviceImpl extends SyncDeviceBaseImpl {
 
 	@Override
@@ -37,7 +35,11 @@ public class SyncDeviceImpl extends SyncDeviceBaseImpl {
 		if (getStatus() == SyncDeviceConstants.STATUS_INACTIVE) {
 			throw new SyncDeviceActiveException();
 		}
-		else if (getStatus() == SyncDeviceConstants.STATUS_WIPED) {
+		else if (getStatus() == SyncDeviceConstants.STATUS_PENDING_WIPE) {
+			SyncDeviceLocalServiceUtil.updateSyncDevice(
+				getSyncDeviceId(), getType(), getBuildNumber(), getFeatureSet(),
+				getHostname(), SyncDeviceConstants.STATUS_WIPED);
+
 			throw new SyncDeviceWipeException();
 		}
 
@@ -96,9 +98,8 @@ public class SyncDeviceImpl extends SyncDeviceBaseImpl {
 		if (getFeatureSet() >= featureSet) {
 			return true;
 		}
-		else {
-			return false;
-		}
+
+		return false;
 	}
 
 }

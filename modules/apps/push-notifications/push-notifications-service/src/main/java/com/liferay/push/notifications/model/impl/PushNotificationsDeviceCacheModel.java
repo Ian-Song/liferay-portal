@@ -14,13 +14,9 @@
 
 package com.liferay.push.notifications.model.impl;
 
-import aQute.bnd.annotation.ProviderType;
-
+import com.liferay.petra.lang.HashUtil;
+import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.model.CacheModel;
-import com.liferay.portal.kernel.util.HashUtil;
-import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
-
 import com.liferay.push.notifications.model.PushNotificationsDevice;
 
 import java.io.Externalizable;
@@ -34,12 +30,11 @@ import java.util.Date;
  * The cache model class for representing PushNotificationsDevice in entity cache.
  *
  * @author Bruno Farache
- * @see PushNotificationsDevice
  * @generated
  */
-@ProviderType
-public class PushNotificationsDeviceCacheModel implements CacheModel<PushNotificationsDevice>,
-	Externalizable {
+public class PushNotificationsDeviceCacheModel
+	implements CacheModel<PushNotificationsDevice>, Externalizable {
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) {
@@ -50,9 +45,12 @@ public class PushNotificationsDeviceCacheModel implements CacheModel<PushNotific
 			return false;
 		}
 
-		PushNotificationsDeviceCacheModel pushNotificationsDeviceCacheModel = (PushNotificationsDeviceCacheModel)obj;
+		PushNotificationsDeviceCacheModel pushNotificationsDeviceCacheModel =
+			(PushNotificationsDeviceCacheModel)obj;
 
-		if (pushNotificationsDeviceId == pushNotificationsDeviceCacheModel.pushNotificationsDeviceId) {
+		if (pushNotificationsDeviceId ==
+				pushNotificationsDeviceCacheModel.pushNotificationsDeviceId) {
+
 			return true;
 		}
 
@@ -66,10 +64,12 @@ public class PushNotificationsDeviceCacheModel implements CacheModel<PushNotific
 
 	@Override
 	public String toString() {
-		StringBundler sb = new StringBundler(11);
+		StringBundler sb = new StringBundler(13);
 
 		sb.append("{pushNotificationsDeviceId=");
 		sb.append(pushNotificationsDeviceId);
+		sb.append(", companyId=");
+		sb.append(companyId);
 		sb.append(", userId=");
 		sb.append(userId);
 		sb.append(", createDate=");
@@ -85,9 +85,12 @@ public class PushNotificationsDeviceCacheModel implements CacheModel<PushNotific
 
 	@Override
 	public PushNotificationsDevice toEntityModel() {
-		PushNotificationsDeviceImpl pushNotificationsDeviceImpl = new PushNotificationsDeviceImpl();
+		PushNotificationsDeviceImpl pushNotificationsDeviceImpl =
+			new PushNotificationsDeviceImpl();
 
-		pushNotificationsDeviceImpl.setPushNotificationsDeviceId(pushNotificationsDeviceId);
+		pushNotificationsDeviceImpl.setPushNotificationsDeviceId(
+			pushNotificationsDeviceId);
+		pushNotificationsDeviceImpl.setCompanyId(companyId);
 		pushNotificationsDeviceImpl.setUserId(userId);
 
 		if (createDate == Long.MIN_VALUE) {
@@ -98,14 +101,14 @@ public class PushNotificationsDeviceCacheModel implements CacheModel<PushNotific
 		}
 
 		if (platform == null) {
-			pushNotificationsDeviceImpl.setPlatform(StringPool.BLANK);
+			pushNotificationsDeviceImpl.setPlatform("");
 		}
 		else {
 			pushNotificationsDeviceImpl.setPlatform(platform);
 		}
 
 		if (token == null) {
-			pushNotificationsDeviceImpl.setToken(StringPool.BLANK);
+			pushNotificationsDeviceImpl.setToken("");
 		}
 		else {
 			pushNotificationsDeviceImpl.setToken(token);
@@ -120,6 +123,8 @@ public class PushNotificationsDeviceCacheModel implements CacheModel<PushNotific
 	public void readExternal(ObjectInput objectInput) throws IOException {
 		pushNotificationsDeviceId = objectInput.readLong();
 
+		companyId = objectInput.readLong();
+
 		userId = objectInput.readLong();
 		createDate = objectInput.readLong();
 		platform = objectInput.readUTF();
@@ -127,22 +132,23 @@ public class PushNotificationsDeviceCacheModel implements CacheModel<PushNotific
 	}
 
 	@Override
-	public void writeExternal(ObjectOutput objectOutput)
-		throws IOException {
+	public void writeExternal(ObjectOutput objectOutput) throws IOException {
 		objectOutput.writeLong(pushNotificationsDeviceId);
+
+		objectOutput.writeLong(companyId);
 
 		objectOutput.writeLong(userId);
 		objectOutput.writeLong(createDate);
 
 		if (platform == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(platform);
 		}
 
 		if (token == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(token);
@@ -150,8 +156,10 @@ public class PushNotificationsDeviceCacheModel implements CacheModel<PushNotific
 	}
 
 	public long pushNotificationsDeviceId;
+	public long companyId;
 	public long userId;
 	public long createDate;
 	public String platform;
 	public String token;
+
 }

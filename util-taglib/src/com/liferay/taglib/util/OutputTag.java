@@ -14,9 +14,8 @@
 
 package com.liferay.taglib.util;
 
+import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.servlet.taglib.util.OutputData;
-import com.liferay.portal.kernel.util.ServerDetector;
-import com.liferay.portal.kernel.util.StringBundler;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.util.WebKeys;
@@ -30,12 +29,17 @@ import javax.servlet.jsp.JspWriter;
  */
 public class OutputTag extends PositionTagSupport {
 
-	public static StringBundler getData(
+	public static StringBundler getDataSB(
 		ServletRequest servletRequest, String webKey) {
 
-		OutputData outputData = _getOutputData(servletRequest);
+		OutputData outputData = (OutputData)servletRequest.getAttribute(
+			WebKeys.OUTPUT_DATA);
 
-		return outputData.getMergedData(webKey);
+		if (outputData == null) {
+			return null;
+		}
+
+		return outputData.getMergedDataSB(webKey);
 	}
 
 	public OutputTag(String stringBundlerKey) {
@@ -68,7 +72,7 @@ public class OutputTag extends PositionTagSupport {
 					OutputData outputData = _getOutputData(
 						pageContext.getRequest());
 
-					outputData.addData(
+					outputData.addDataSB(
 						_outputKey, _webKey,
 						new StringBundler(bodyContentString));
 				}
@@ -80,9 +84,7 @@ public class OutputTag extends PositionTagSupport {
 			throw new JspException(e);
 		}
 		finally {
-			if (!ServerDetector.isResin()) {
-				cleanUp();
-			}
+			cleanUp();
 		}
 	}
 
@@ -144,7 +146,9 @@ public class OutputTag extends PositionTagSupport {
 
 			if (!subcontent.contains(attributeName)) {
 				content = StringUtil.insert(
-					content, " " + attributeName + "=" + attributeValue,
+					content,
+					StringBundler.concat(
+						" ", attributeName, "=", attributeValue),
 					x + tagName.length() + 1);
 			}
 		}

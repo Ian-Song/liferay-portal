@@ -14,9 +14,9 @@
 
 package com.liferay.util;
 
-import com.liferay.portal.kernel.util.CharPool;
-import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
+import com.liferay.petra.string.CharPool;
+import com.liferay.petra.string.StringBundler;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.UnicodeFormatter;
 
@@ -74,14 +74,6 @@ public class JS {
 		return s;
 	}
 
-	/**
-	 * @deprecated As of 6.2.0, replaced by {@link #encodeURIComponent}
-	 */
-	@Deprecated
-	public static String escape(String s) {
-		return encodeURIComponent(s);
-	}
-
 	public static String getSafeName(String name) {
 		if (name == null) {
 			return null;
@@ -94,33 +86,25 @@ public class JS {
 		for (int i = 0; i < name.length(); i++) {
 			char c = name.charAt(i);
 
-			switch (c) {
-				case CharPool.SPACE:
+			if ((c == CharPool.DASH) || (c == CharPool.PERIOD) ||
+				(c == CharPool.SPACE)) {
 
-				case CharPool.DASH:
+				if (sb == null) {
+					sb = new StringBuilder(name.length() - 1);
 
-				case CharPool.PERIOD:
-					if (sb == null) {
-						sb = new StringBuilder(name.length() - 1);
-
-						sb.append(name, index, i);
-					}
-
-					break;
-
-				default:
-					if (sb != null) {
-						sb.append(c);
-					}
+					sb.append(name, index, i);
+				}
+			}
+			else if (sb != null) {
+				sb.append(c);
 			}
 		}
 
 		if (sb == null) {
 			return name;
 		}
-		else {
-			return sb.toString();
-		}
+
+		return sb.toString();
 	}
 
 	public static String toScript(String[] array) {
@@ -141,14 +125,6 @@ public class JS {
 		sb.append(StringPool.CLOSE_BRACKET);
 
 		return sb.toString();
-	}
-
-	/**
-	 * @deprecated As of 6.2.0, replaced by {@link #decodeURIComponent}
-	 */
-	@Deprecated
-	public static String unescape(String s) {
-		return decodeURIComponent(s);
 	}
 
 	private static final Pattern _pattern = Pattern.compile("%u[0-9a-fA-F]{4}");

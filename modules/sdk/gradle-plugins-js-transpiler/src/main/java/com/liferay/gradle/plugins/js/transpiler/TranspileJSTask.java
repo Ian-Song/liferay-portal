@@ -30,15 +30,17 @@ import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileTree;
 import org.gradle.api.file.CopySpec;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.logging.Logger;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.OutputDirectory;
-import org.gradle.api.tasks.SkipWhenEmpty;
 import org.gradle.util.GUtil;
 
 /**
- * @author Andrea Di Giorgi
+ * @author     Andrea Di Giorgi
+ * @deprecated As of Judson (7.1.x), with no direct replacement
  */
+@Deprecated
 public class TranspileJSTask extends ExecuteNodeScriptTask {
 
 	public TranspileJSTask() {
@@ -65,6 +67,7 @@ public class TranspileJSTask extends ExecuteNodeScriptTask {
 						copySpec.include(getSrcIncludes());
 
 						copySpec.into(workingDir);
+						copySpec.setIncludeEmptyDirs(false);
 					}
 
 				});
@@ -93,12 +96,12 @@ public class TranspileJSTask extends ExecuteNodeScriptTask {
 		return GradleUtil.toString(_modules);
 	}
 
+	@Input
 	public File getSourceDir() {
 		return GradleUtil.toFile(getProject(), _sourceDir);
 	}
 
 	@InputFiles
-	@SkipWhenEmpty
 	public FileCollection getSourceFiles() {
 		Project project = getProject();
 
@@ -140,6 +143,10 @@ public class TranspileJSTask extends ExecuteNodeScriptTask {
 		return super.getWorkingDir();
 	}
 
+	public boolean isSkipWhenEmpty() {
+		return _skipWhenEmpty;
+	}
+
 	@Input
 	public boolean isSoySkipMetalGeneration() {
 		return _soySkipMetalGeneration;
@@ -159,6 +166,10 @@ public class TranspileJSTask extends ExecuteNodeScriptTask {
 
 	public void setModules(Object modules) {
 		_modules = modules;
+	}
+
+	public void setSkipWhenEmpty(boolean skipWhenEmpty) {
+		_skipWhenEmpty = skipWhenEmpty;
 	}
 
 	public void setSourceDir(Object sourceDir) {
@@ -259,6 +270,17 @@ public class TranspileJSTask extends ExecuteNodeScriptTask {
 		completeArgs.add("--globalName");
 		completeArgs.add(getGlobalName());
 
+		String logLevel = "silent";
+
+		Logger logger = getLogger();
+
+		if (logger.isInfoEnabled()) {
+			logLevel = "warn";
+		}
+
+		completeArgs.add("--logLevel");
+		completeArgs.add(logLevel);
+
 		completeArgs.add("--moduleName");
 		completeArgs.add(getModuleName());
 
@@ -302,6 +324,7 @@ public class TranspileJSTask extends ExecuteNodeScriptTask {
 	private Object _globalName = "";
 	private Object _moduleName = "";
 	private Object _modules = "amd";
+	private boolean _skipWhenEmpty = true;
 	private Object _sourceDir;
 	private SourceMaps _sourceMaps = SourceMaps.ENABLED;
 	private final Set<Object> _soyDependencies = new LinkedHashSet<>();

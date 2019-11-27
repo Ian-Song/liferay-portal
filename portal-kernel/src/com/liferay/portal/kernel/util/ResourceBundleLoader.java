@@ -14,13 +14,18 @@
 
 package com.liferay.portal.kernel.util;
 
+import java.util.Locale;
 import java.util.ResourceBundle;
+
+import org.osgi.annotation.versioning.ProviderType;
 
 /**
  * @author Carlos Sierra Andrés
  */
+@FunctionalInterface
+@ProviderType
 public interface ResourceBundleLoader {
 
-	public ResourceBundle loadResourceBundle(String languageId);
+	public ResourceBundle loadResourceBundle(Locale locale);
 
 }

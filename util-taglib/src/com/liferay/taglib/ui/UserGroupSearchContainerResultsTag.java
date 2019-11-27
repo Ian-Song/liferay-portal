@@ -15,7 +15,6 @@
 package com.liferay.taglib.ui;
 
 import com.liferay.portal.kernel.dao.search.DisplayTerms;
-import com.liferay.portal.kernel.dao.search.SearchContainer;
 import com.liferay.taglib.util.IncludeTag;
 
 import java.util.LinkedHashMap;
@@ -27,12 +26,16 @@ import javax.servlet.http.HttpServletRequest;
  */
 public class UserGroupSearchContainerResultsTag<R> extends IncludeTag {
 
-	public void setSearchTerms(DisplayTerms searchTerms) {
-		_searchTerms = searchTerms;
+	public DisplayTerms getSearchTerms() {
+		return _searchTerms;
 	}
 
-	public void setUseIndexer(boolean useIndexer) {
-		_useIndexer = useIndexer;
+	public LinkedHashMap<String, Object> getUserGroupParams() {
+		return _userGroupParams;
+	}
+
+	public void setSearchTerms(DisplayTerms searchTerms) {
+		_searchTerms = searchTerms;
 	}
 
 	public void setUserGroupParams(
@@ -43,8 +46,9 @@ public class UserGroupSearchContainerResultsTag<R> extends IncludeTag {
 
 	@Override
 	protected void cleanUp() {
+		super.cleanUp();
+
 		_searchTerms = null;
-		_useIndexer = false;
 		_userGroupParams = null;
 	}
 
@@ -54,24 +58,19 @@ public class UserGroupSearchContainerResultsTag<R> extends IncludeTag {
 	}
 
 	@Override
-	protected void setAttributes(HttpServletRequest request) {
+	protected void setAttributes(HttpServletRequest httpServletRequest) {
 		SearchContainerTag<R> searchContainerTag =
 			(SearchContainerTag<R>)findAncestorWithClass(
 				this, SearchContainerTag.class);
 
-		SearchContainer<R> searchContainer =
-			searchContainerTag.getSearchContainer();
-
-		request.setAttribute(
+		httpServletRequest.setAttribute(
 			"liferay-ui:user-group-search-container-results:searchContainer",
-			searchContainer);
-		request.setAttribute(
+			searchContainerTag.getSearchContainer());
+
+		httpServletRequest.setAttribute(
 			"liferay-ui:user-group-search-container-results:searchTerms",
 			_searchTerms);
-		request.setAttribute(
-			"liferay-ui:user-group-search-container-results:useIndexer",
-			_useIndexer);
-		request.setAttribute(
+		httpServletRequest.setAttribute(
 			"liferay-ui:user-group-search-container-results:userGroupParams",
 			_userGroupParams);
 	}
@@ -80,7 +79,6 @@ public class UserGroupSearchContainerResultsTag<R> extends IncludeTag {
 		"/html/taglib/ui/user_group_search_container_results/page.jsp";
 
 	private DisplayTerms _searchTerms;
-	private boolean _useIndexer;
 	private LinkedHashMap<String, Object> _userGroupParams;
 
 }

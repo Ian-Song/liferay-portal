@@ -14,6 +14,7 @@
 
 package com.liferay.portal.tools.sample.sql.builder;
 
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.dao.db.DB;
 import com.liferay.portal.kernel.dao.db.DBManagerUtil;
 import com.liferay.portal.kernel.dao.db.DBType;
@@ -30,6 +31,9 @@ import java.io.File;
 
 import java.net.URL;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -37,6 +41,7 @@ import java.sql.Statement;
 import java.util.Enumeration;
 import java.util.Properties;
 
+import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 
@@ -48,6 +53,22 @@ public class SampleSQLBuilderTest {
 	@ClassRule
 	public static final LogAssertionTestRule logAssertionTestRule =
 		LogAssertionTestRule.INSTANCE;
+
+	@Test
+	public void testFreemarkerTemplateContent() throws Exception {
+		Class<?> clazz = getClass();
+
+		URL url = clazz.getResource(
+			"/com/liferay/portal/tools/sample/sql/builder/dependencies" +
+				"/sample.ftl");
+
+		String fileContent = new String(
+			Files.readAllBytes(Paths.get(url.toURI())), StringPool.UTF8);
+
+		Assert.assertTrue(
+			"sample.ftl must end with " + _SAMPLE_FTL_END,
+			fileContent.endsWith(_SAMPLE_FTL_END));
+	}
 
 	@Test
 	public void testGenerateAndInsertSampleSQL() throws Exception {
@@ -96,8 +117,6 @@ public class SampleSQLBuilderTest {
 	}
 
 	private void _initProperties(Properties properties, String outputDir) {
-		properties.put(
-			"sample.sql.asset.publisher.query.name", "assetCategories");
 		properties.put("sample.sql.db.type", "hypersonic");
 		properties.put("sample.sql.max.asset.category.count", "1");
 		properties.put(
@@ -108,6 +127,10 @@ public class SampleSQLBuilderTest {
 		properties.put("sample.sql.max.asset.vocabulary.count", "1");
 		properties.put("sample.sql.max.blogs.entry.comment.count", "1");
 		properties.put("sample.sql.max.blogs.entry.count", "1");
+		properties.put("sample.sql.max.commerce.product.count", "1");
+		properties.put("sample.sql.max.commerce.product.definition.count", "1");
+		properties.put("sample.sql.max.commerce.product.instance.count", "1");
+		properties.put("sample.sql.max.content.layout.count", "1");
 		properties.put("sample.sql.max.ddl.custom.field.count", "1");
 		properties.put("sample.sql.max.ddl.record.count", "1");
 		properties.put("sample.sql.max.ddl.record.set.count", "1");
@@ -131,8 +154,9 @@ public class SampleSQLBuilderTest {
 		properties.put("sample.sql.optimize.buffer.size", "8192");
 		properties.put(
 			"sample.sql.output.csv.file.names",
-			"assetPublisher,blog,company,documentLibrary,dynamicDataList," +
-				"layout,messageBoard,repository,wiki");
+			"assetPublisher,blog,company,cpFriendlyURLEntry,documentLibrary," +
+				"dynamicDataList,fragment,layout,mbCategory,mbThread," +
+					"repository,wiki");
 		properties.put("sample.sql.output.dir", outputDir);
 		properties.put("sample.sql.output.merge", "true");
 		properties.put(
@@ -197,5 +221,8 @@ public class SampleSQLBuilderTest {
 
 		db.runSQLTemplateString(connection, sql, false, true);
 	}
+
+	private static final String _SAMPLE_FTL_END =
+		"<#include \"counters.ftl\">\n\nCOMMIT_TRANSACTION";
 
 }

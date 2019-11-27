@@ -14,13 +14,9 @@
 
 package com.liferay.sync.model.impl;
 
-import aQute.bnd.annotation.ProviderType;
-
+import com.liferay.petra.lang.HashUtil;
+import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.model.CacheModel;
-import com.liferay.portal.kernel.util.HashUtil;
-import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
-
 import com.liferay.sync.model.SyncDevice;
 
 import java.io.Externalizable;
@@ -34,12 +30,11 @@ import java.util.Date;
  * The cache model class for representing SyncDevice in entity cache.
  *
  * @author Brian Wing Shun Chan
- * @see SyncDevice
  * @generated
  */
-@ProviderType
-public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
-	Externalizable {
+public class SyncDeviceCacheModel
+	implements CacheModel<SyncDevice>, Externalizable {
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) {
@@ -66,7 +61,7 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 
 	@Override
 	public String toString() {
-		StringBundler sb = new StringBundler(23);
+		StringBundler sb = new StringBundler(25);
 
 		sb.append("{uuid=");
 		sb.append(uuid);
@@ -88,6 +83,8 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 		sb.append(buildNumber);
 		sb.append(", featureSet=");
 		sb.append(featureSet);
+		sb.append(", hostname=");
+		sb.append(hostname);
 		sb.append(", status=");
 		sb.append(status);
 		sb.append("}");
@@ -100,7 +97,7 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 		SyncDeviceImpl syncDeviceImpl = new SyncDeviceImpl();
 
 		if (uuid == null) {
-			syncDeviceImpl.setUuid(StringPool.BLANK);
+			syncDeviceImpl.setUuid("");
 		}
 		else {
 			syncDeviceImpl.setUuid(uuid);
@@ -111,7 +108,7 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 		syncDeviceImpl.setUserId(userId);
 
 		if (userName == null) {
-			syncDeviceImpl.setUserName(StringPool.BLANK);
+			syncDeviceImpl.setUserName("");
 		}
 		else {
 			syncDeviceImpl.setUserName(userName);
@@ -132,7 +129,7 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 		}
 
 		if (type == null) {
-			syncDeviceImpl.setType(StringPool.BLANK);
+			syncDeviceImpl.setType("");
 		}
 		else {
 			syncDeviceImpl.setType(type);
@@ -140,6 +137,14 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 
 		syncDeviceImpl.setBuildNumber(buildNumber);
 		syncDeviceImpl.setFeatureSet(featureSet);
+
+		if (hostname == null) {
+			syncDeviceImpl.setHostname("");
+		}
+		else {
+			syncDeviceImpl.setHostname(hostname);
+		}
+
 		syncDeviceImpl.setStatus(status);
 
 		syncDeviceImpl.resetOriginalValues();
@@ -164,15 +169,15 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 		buildNumber = objectInput.readLong();
 
 		featureSet = objectInput.readInt();
+		hostname = objectInput.readUTF();
 
 		status = objectInput.readInt();
 	}
 
 	@Override
-	public void writeExternal(ObjectOutput objectOutput)
-		throws IOException {
+	public void writeExternal(ObjectOutput objectOutput) throws IOException {
 		if (uuid == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(uuid);
@@ -185,7 +190,7 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 		objectOutput.writeLong(userId);
 
 		if (userName == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(userName);
@@ -195,7 +200,7 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 		objectOutput.writeLong(modifiedDate);
 
 		if (type == null) {
-			objectOutput.writeUTF(StringPool.BLANK);
+			objectOutput.writeUTF("");
 		}
 		else {
 			objectOutput.writeUTF(type);
@@ -204,6 +209,13 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 		objectOutput.writeLong(buildNumber);
 
 		objectOutput.writeInt(featureSet);
+
+		if (hostname == null) {
+			objectOutput.writeUTF("");
+		}
+		else {
+			objectOutput.writeUTF(hostname);
+		}
 
 		objectOutput.writeInt(status);
 	}
@@ -218,5 +230,7 @@ public class SyncDeviceCacheModel implements CacheModel<SyncDevice>,
 	public String type;
 	public long buildNumber;
 	public int featureSet;
+	public String hostname;
 	public int status;
+
 }

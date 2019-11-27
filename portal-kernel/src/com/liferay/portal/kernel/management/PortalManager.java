@@ -15,8 +15,10 @@
 package com.liferay.portal.kernel.management;
 
 /**
- * @author Shuyang Zhou
+ * @author     Shuyang Zhou
+ * @deprecated As of Mueller (7.2.x), with no direct replacement
  */
+@Deprecated
 public interface PortalManager {
 
 	public <T> T manage(ManageAction<T> manageAction)

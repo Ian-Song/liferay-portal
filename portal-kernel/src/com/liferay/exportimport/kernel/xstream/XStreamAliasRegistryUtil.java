@@ -23,24 +23,25 @@ import com.liferay.registry.ServiceTrackerCustomizer;
 import com.liferay.registry.collections.ServiceRegistrationMap;
 import com.liferay.registry.collections.ServiceRegistrationMapImpl;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * @author Mate Thurzo
+ * @author Máté Thurzó
  */
 public class XStreamAliasRegistryUtil {
 
 	public static Map<Class<?>, String> getAliases() {
-		return _instance._getAliases();
+		return new HashMap<>(_xStreamAliasRegistryUtil._getAliases());
 	}
 
 	public static void register(Class<?> clazz, String name) {
-		_instance._register(clazz, name);
+		_xStreamAliasRegistryUtil._register(clazz, name);
 	}
 
 	public static void unregister(Class<?> clazz, String name) {
-		_instance._unregister(clazz, name);
+		_xStreamAliasRegistryUtil._unregister(clazz, name);
 	}
 
 	private XStreamAliasRegistryUtil() {
@@ -78,7 +79,7 @@ public class XStreamAliasRegistryUtil {
 		}
 	}
 
-	private static final XStreamAliasRegistryUtil _instance =
+	private static final XStreamAliasRegistryUtil _xStreamAliasRegistryUtil =
 		new XStreamAliasRegistryUtil();
 
 	private final ServiceRegistrationMap<XStreamAlias> _serviceRegistrations =

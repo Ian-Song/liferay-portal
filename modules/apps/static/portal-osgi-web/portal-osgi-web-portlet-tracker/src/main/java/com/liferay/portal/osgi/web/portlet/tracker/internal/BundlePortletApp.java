@@ -21,8 +21,13 @@ import com.liferay.portal.kernel.model.PortletFilter;
 import com.liferay.portal.kernel.model.PortletURLListener;
 import com.liferay.portal.kernel.model.PublicRenderParameter;
 import com.liferay.portal.kernel.model.SpriteImage;
+import com.liferay.portal.kernel.util.StringUtil;
+import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.xml.QName;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -38,12 +43,11 @@ import org.osgi.framework.Bundle;
 public class BundlePortletApp implements PortletApp {
 
 	public BundlePortletApp(
-		Bundle bundle, Portlet portalPortletModel, String servletContextName,
-		String contextPath) {
+		Bundle bundle, Portlet portalPortletModel,
+		ServletContext servletContext) {
 
 		_portalPortletModel = portalPortletModel;
-		_servletContextName = servletContextName;
-		_contextPath = contextPath;
+		_servletContext = servletContext;
 
 		_pluginPackage = new BundlePluginPackage(bundle, this);
 		_portletApp = portalPortletModel.getPortletApp();
@@ -51,7 +55,7 @@ public class BundlePortletApp implements PortletApp {
 
 	@Override
 	public void addEventDefinition(EventDefinition eventDefinition) {
-		_portletApp.addEventDefinition(eventDefinition);
+		_eventDefinitions.add(eventDefinition);
 	}
 
 	@Override
@@ -66,7 +70,9 @@ public class BundlePortletApp implements PortletApp {
 
 	@Override
 	public void addPortletURLListener(PortletURLListener portletURLListener) {
-		_portletApp.addPortletURLListener(portletURLListener);
+		_portletURLListeners.add(portletURLListener);
+		_portletURLListenersMap.put(
+			portletURLListener.getListenerClass(), portletURLListener);
 	}
 
 	@Override
@@ -93,7 +99,9 @@ public class BundlePortletApp implements PortletApp {
 
 	@Override
 	public String getContextPath() {
-		return _contextPath;
+		ServletContext servletContext = getServletContext();
+
+		return servletContext.getContextPath();
 	}
 
 	@Override
@@ -103,12 +111,16 @@ public class BundlePortletApp implements PortletApp {
 
 	@Override
 	public String getDefaultNamespace() {
-		return _portletApp.getDefaultNamespace();
+		if (_defaultNamespace == null) {
+			return _portletApp.getDefaultNamespace();
+		}
+
+		return _defaultNamespace;
 	}
 
 	@Override
 	public Set<EventDefinition> getEventDefinitions() {
-		return _portletApp.getEventDefinitions();
+		return _eventDefinitions;
 	}
 
 	public BundlePluginPackage getPluginPackage() {
@@ -132,12 +144,12 @@ public class BundlePortletApp implements PortletApp {
 
 	@Override
 	public PortletURLListener getPortletURLListener(String listenerClass) {
-		return _portletApp.getPortletURLListener(listenerClass);
+		return _portletURLListenersMap.get(listenerClass);
 	}
 
 	@Override
 	public Set<PortletURLListener> getPortletURLListeners() {
-		return _portletApp.getPortletURLListeners();
+		return _portletURLListeners;
 	}
 
 	@Override
@@ -156,7 +168,9 @@ public class BundlePortletApp implements PortletApp {
 
 	@Override
 	public String getServletContextName() {
-		return _servletContextName;
+		ServletContext servletContext = getServletContext();
+
+		return servletContext.getServletContextName();
 	}
 
 	@Override
@@ -165,8 +179,18 @@ public class BundlePortletApp implements PortletApp {
 	}
 
 	@Override
+	public int getSpecMajorVersion() {
+		return _specMajorVersion;
+	}
+
+	@Override
+	public int getSpecMinorVersion() {
+		return _specMinorVersion;
+	}
+
+	@Override
 	public SpriteImage getSpriteImage(String fileName) {
-		return _portletApp.getSpriteImage(fileName);
+		return _spriteImagesMap.get(fileName);
 	}
 
 	@Override
@@ -176,7 +200,7 @@ public class BundlePortletApp implements PortletApp {
 
 	@Override
 	public boolean isWARFile() {
-		return true;
+		return _warFile;
 	}
 
 	@Override
@@ -186,29 +210,67 @@ public class BundlePortletApp implements PortletApp {
 
 	@Override
 	public void setDefaultNamespace(String defaultNamespace) {
-		_portletApp.setDefaultNamespace(defaultNamespace);
+		if (Validator.isNull(defaultNamespace)) {
+			_defaultNamespace = null;
+		}
+		else {
+			_defaultNamespace = defaultNamespace;
+		}
 	}
 
 	@Override
 	public void setServletContext(ServletContext servletContext) {
-		_servletContext = servletContext;
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public void setSpecMajorVersion(int specMajorVersion) {
+		_specMajorVersion = specMajorVersion;
+	}
+
+	@Override
+	public void setSpecMinorVersion(int specMinorVersion) {
+		_specMinorVersion = specMinorVersion;
 	}
 
 	@Override
 	public void setSpriteImages(String spriteFileName, Properties properties) {
-		_portletApp.setSpriteImages(spriteFileName, properties);
+		for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+			String key = (String)entry.getKey();
+
+			String value = (String)entry.getValue();
+
+			int[] values = StringUtil.split(value, 0);
+
+			int offset = values[0];
+			int height = values[1];
+			int width = values[2];
+
+			SpriteImage spriteImage = new SpriteImage(
+				spriteFileName, key, offset, height, width);
+
+			_spriteImagesMap.put(key, spriteImage);
+		}
 	}
 
 	@Override
 	public void setWARFile(boolean warFile) {
-		_portletApp.setWARFile(warFile);
+		_warFile = warFile;
 	}
 
-	private final String _contextPath;
+	private String _defaultNamespace;
+	private final Set<EventDefinition> _eventDefinitions = new HashSet<>();
 	private final BundlePluginPackage _pluginPackage;
 	private final Portlet _portalPortletModel;
 	private final PortletApp _portletApp;
-	private ServletContext _servletContext;
-	private final String _servletContextName;
+	private final Set<PortletURLListener> _portletURLListeners =
+		new LinkedHashSet<>();
+	private final Map<String, PortletURLListener> _portletURLListenersMap =
+		new HashMap<>();
+	private final ServletContext _servletContext;
+	private int _specMajorVersion = 2;
+	private int _specMinorVersion;
+	private final Map<String, SpriteImage> _spriteImagesMap = new HashMap<>();
+	private boolean _warFile = true;
 
 }

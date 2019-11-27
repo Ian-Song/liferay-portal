@@ -14,23 +14,26 @@
 
 package com.liferay.portal.test.rule;
 
-import com.liferay.portal.aspectj.WeavingClassLoader;
-import com.liferay.portal.kernel.process.ClassPathUtil;
-import com.liferay.portal.kernel.process.ProcessCallable;
-import com.liferay.portal.kernel.process.ProcessException;
+import com.liferay.petra.io.Deserializer;
+import com.liferay.petra.io.Serializer;
+import com.liferay.petra.process.ClassPathUtil;
+import com.liferay.petra.process.ProcessCallable;
+import com.liferay.petra.process.ProcessException;
+import com.liferay.petra.string.StringBundler;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.test.ReflectionTestUtil;
 import com.liferay.portal.kernel.test.rule.NewEnvTestRule;
 import com.liferay.portal.kernel.util.ArrayUtil;
 import com.liferay.portal.kernel.util.MethodKey;
-import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
-import com.liferay.util.SerializableUtil;
+import com.liferay.portal.test.aspects.WeavingClassLoader;
 
 import java.io.File;
 import java.io.Serializable;
 
 import java.net.MalformedURLException;
+
+import java.nio.ByteBuffer;
 
 import java.util.List;
 
@@ -112,8 +115,11 @@ public class AspectJNewEnvTestRule extends NewEnvTestRule {
 
 		File dumpDir = new File(
 			System.getProperty("junit.aspectj.dump"),
-			className.concat(StringPool.PERIOD).concat(
-				description.getMethodName()));
+			className.concat(
+				StringPool.PERIOD
+			).concat(
+				description.getMethodName()
+			));
 
 		try {
 			return new WeavingClassLoader(
@@ -135,8 +141,11 @@ public class AspectJNewEnvTestRule extends NewEnvTestRule {
 
 		File dumpDir = new File(
 			System.getProperty("junit.aspectj.dump"),
-			className.concat(StringPool.PERIOD).concat(
-				methodKey.getMethodName()));
+			className.concat(
+				StringPool.PERIOD
+			).concat(
+				methodKey.getMethodName()
+			));
 
 		return new SwitchClassLoaderProcessCallable(processCallable, dumpDir);
 	}
@@ -152,8 +161,14 @@ public class AspectJNewEnvTestRule extends NewEnvTestRule {
 
 			_dumpDir = dumpDir;
 
-			_encodedProcessCallable = SerializableUtil.serialize(
-				processCallable);
+			Serializer serializer = new Serializer();
+
+			serializer.writeObject(processCallable);
+
+			ByteBuffer byteBuffer = serializer.toByteBuffer();
+
+			_encodedProcessCallable = byteBuffer.array();
+
 			_toString = processCallable.toString();
 		}
 
@@ -184,10 +199,12 @@ public class AspectJNewEnvTestRule extends NewEnvTestRule {
 
 				currentThread.setContextClassLoader(weavingClassLoader);
 
+				Deserializer deserializer = new Deserializer(
+					ByteBuffer.wrap(_encodedProcessCallable));
+
 				return ReflectionTestUtil.invoke(
-					SerializableUtil.deserialize(
-						_encodedProcessCallable, weavingClassLoader),
-					"call", new Class<?>[0]);
+					(ProcessCallable)deserializer.readObject(), "call",
+					new Class<?>[0]);
 			}
 			catch (Exception e) {
 				throw new ProcessException(e);

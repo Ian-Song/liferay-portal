@@ -14,7 +14,13 @@
 
 package com.liferay.portal.model.impl;
 
+import com.liferay.petra.encryptor.Encryptor;
+import com.liferay.petra.string.CharPool;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.bean.AutoEscape;
+import com.liferay.portal.kernel.cache.thread.local.Lifecycle;
+import com.liferay.portal.kernel.cache.thread.local.ThreadLocalCache;
+import com.liferay.portal.kernel.cache.thread.local.ThreadLocalCacheManager;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.model.Account;
 import com.liferay.portal.kernel.model.Company;
@@ -29,17 +35,14 @@ import com.liferay.portal.kernel.service.GroupLocalServiceUtil;
 import com.liferay.portal.kernel.service.LayoutSetLocalServiceUtil;
 import com.liferay.portal.kernel.service.UserLocalServiceUtil;
 import com.liferay.portal.kernel.service.VirtualHostLocalServiceUtil;
-import com.liferay.portal.kernel.util.CharPool;
 import com.liferay.portal.kernel.util.GetterUtil;
 import com.liferay.portal.kernel.util.PortalUtil;
 import com.liferay.portal.kernel.util.PropsKeys;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.util.PrefsPropsUtil;
 import com.liferay.portal.util.PropsUtil;
 import com.liferay.portal.util.PropsValues;
-import com.liferay.util.Encryptor;
 
 import java.io.Serializable;
 
@@ -47,6 +50,7 @@ import java.security.Key;
 
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.TreeMap;
 
 import javax.portlet.PortletPreferences;
 
@@ -58,23 +62,28 @@ public class CompanyImpl extends CompanyBaseImpl {
 	@Override
 	public int compareTo(Company company) {
 		String webId1 = getWebId();
-		String webId2 = company.getWebId();
 
 		if (webId1.equals(PropsValues.COMPANY_DEFAULT_WEB_ID)) {
 			return -1;
 		}
-		else if (webId2.equals(PropsValues.COMPANY_DEFAULT_WEB_ID)) {
+
+		String webId2 = company.getWebId();
+
+		if (webId2.equals(PropsValues.COMPANY_DEFAULT_WEB_ID)) {
 			return 1;
 		}
-		else {
-			return webId1.compareTo(webId2);
-		}
+
+		return webId1.compareTo(webId2);
 	}
 
 	@Override
 	public Account getAccount() throws PortalException {
-		return AccountLocalServiceUtil.getAccount(
-			getCompanyId(), getAccountId());
+		if (_account == null) {
+			_account = AccountLocalServiceUtil.getAccount(
+				getCompanyId(), getAccountId());
+		}
+
+		return _account;
 	}
 
 	@Override
@@ -119,7 +128,22 @@ public class CompanyImpl extends CompanyBaseImpl {
 	@Override
 	public Group getGroup() throws PortalException {
 		if (getCompanyId() > CompanyConstants.SYSTEM) {
-			return GroupLocalServiceUtil.getCompanyGroup(getCompanyId());
+			ThreadLocalCache<Group> threadLocalCache =
+				ThreadLocalCacheManager.getThreadLocalCache(
+					Lifecycle.REQUEST, Company.class.getName());
+
+			String cacheKey = StringUtil.toHexString(getCompanyId());
+
+			Group companyGroup = threadLocalCache.get(cacheKey);
+
+			if (companyGroup == null) {
+				companyGroup = GroupLocalServiceUtil.getCompanyGroup(
+					getCompanyId());
+
+				threadLocalCache.put(cacheKey, companyGroup);
+			}
+
+			return companyGroup;
 		}
 
 		return new GroupImpl();
@@ -173,18 +197,24 @@ public class CompanyImpl extends CompanyBaseImpl {
 			LayoutSet layoutSet = LayoutSetLocalServiceUtil.getLayoutSet(
 				groupId, false);
 
-			if (Validator.isNotNull(layoutSet.getVirtualHostname())) {
+			TreeMap<String, String> virtualHostnames =
+				layoutSet.getVirtualHostnames();
+
+			if (!virtualHostnames.isEmpty()) {
 				portalURL = PortalUtil.getPortalURL(
-					layoutSet.getVirtualHostname(), portalPort, false);
+					virtualHostnames.firstKey(), portalPort, false);
 			}
 		}
 		else if (group.hasPrivateLayouts()) {
 			LayoutSet layoutSet = LayoutSetLocalServiceUtil.getLayoutSet(
 				groupId, true);
 
-			if (Validator.isNotNull(layoutSet.getVirtualHostname())) {
+			TreeMap<String, String> virtualHostnames =
+				layoutSet.getVirtualHostnames();
+
+			if (!virtualHostnames.isEmpty()) {
 				portalURL = PortalUtil.getPortalURL(
-					layoutSet.getVirtualHostname(), portalPort, false);
+					virtualHostnames.firstKey(), portalPort, false);
 			}
 		}
 
@@ -245,8 +275,8 @@ public class CompanyImpl extends CompanyBaseImpl {
 			getCompanyId(), PropsKeys.ADMIN_MAIL_HOST_NAMES,
 			StringPool.NEW_LINE, PropsValues.ADMIN_MAIL_HOST_NAMES);
 
-		for (int i = 0; i < mailHostNames.length; i++) {
-			if (StringUtil.equalsIgnoreCase(mx, mailHostNames[i])) {
+		for (String mailHostName : mailHostNames) {
+			if (StringUtil.equalsIgnoreCase(mx, mailHostName)) {
 				return true;
 			}
 		}
@@ -261,11 +291,13 @@ public class CompanyImpl extends CompanyBaseImpl {
 		return companySecurityBag._autoLogin;
 	}
 
+	/**
+	 * @deprecated As of Mueller (7.2.x), with no direct replacement
+	 */
+	@Deprecated
 	@Override
 	public boolean isSendPassword() {
-		CompanySecurityBag companySecurityBag = getCompanySecurityBag();
-
-		return companySecurityBag._sendPassword;
+		return false;
 	}
 
 	@Override
@@ -336,9 +368,6 @@ public class CompanyImpl extends CompanyBaseImpl {
 			_autoLogin = _getPrefsPropsBoolean(
 				preferences, company, PropsKeys.COMPANY_SECURITY_AUTO_LOGIN,
 				PropsValues.COMPANY_SECURITY_AUTO_LOGIN);
-			_sendPassword = _getPrefsPropsBoolean(
-				preferences, company, PropsKeys.COMPANY_SECURITY_SEND_PASSWORD,
-				PropsValues.COMPANY_SECURITY_SEND_PASSWORD);
 			_siteLogo = _getPrefsPropsBoolean(
 				preferences, company, PropsKeys.COMPANY_SECURITY_SITE_LOGO,
 				PropsValues.COMPANY_SECURITY_SITE_LOGO);
@@ -357,7 +386,6 @@ public class CompanyImpl extends CompanyBaseImpl {
 
 		private final String _authType;
 		private final boolean _autoLogin;
-		private final boolean _sendPassword;
 		private final boolean _siteLogo;
 		private final boolean _strangers;
 		private final boolean _strangersVerify;
@@ -392,6 +420,8 @@ public class CompanyImpl extends CompanyBaseImpl {
 
 		return defaultValue;
 	}
+
+	private Account _account;
 
 	@CacheField
 	private CompanySecurityBag _companySecurityBag;

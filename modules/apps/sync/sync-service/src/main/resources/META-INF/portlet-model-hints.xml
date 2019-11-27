@@ -12,10 +12,12 @@
 		<field name="type" type="String" />
 		<field name="buildNumber" type="long" />
 		<field name="featureSet" type="int" />
+		<field name="hostname" type="String" />
 		<field name="status" type="int" />
 	</model>
 	<model name="com.liferay.sync.model.SyncDLFileVersionDiff">
 		<field name="syncDLFileVersionDiffId" type="long" />
+		<field name="companyId" type="long" />
 		<field name="fileEntryId" type="long" />
 		<field name="sourceFileVersionId" type="long" />
 		<field name="targetFileVersionId" type="long" />
@@ -52,6 +54,7 @@
 		<field name="size" type="long" />
 		<field name="checksum" type="String" />
 		<field name="event" type="String" />
+		<field name="lanTokenKey" type="String" />
 		<field name="lastPermissionChangeDate" type="Date" />
 		<field name="lockExpirationDate" type="Date" />
 		<field name="lockUserId" type="long" />

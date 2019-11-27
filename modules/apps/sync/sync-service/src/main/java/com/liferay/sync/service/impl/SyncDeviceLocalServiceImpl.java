@@ -14,12 +14,11 @@
 
 package com.liferay.sync.service.impl;
 
-import aQute.bnd.annotation.ProviderType;
-
+import com.liferay.petra.string.StringPool;
+import com.liferay.portal.aop.AopService;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.model.User;
 import com.liferay.portal.kernel.util.OrderByComparator;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.sync.constants.SyncDeviceConstants;
 import com.liferay.sync.model.SyncDevice;
@@ -28,18 +27,24 @@ import com.liferay.sync.service.base.SyncDeviceLocalServiceBaseImpl;
 import java.util.Date;
 import java.util.List;
 
+import org.osgi.service.component.annotations.Component;
+
 /**
  * @author Shinn Lok
  */
-@ProviderType
+@Component(
+	property = "model.class.name=com.liferay.sync.model.SyncDevice",
+	service = AopService.class
+)
 public class SyncDeviceLocalServiceImpl extends SyncDeviceLocalServiceBaseImpl {
 
 	@Override
 	public SyncDevice addSyncDevice(
-			long userId, String type, int buildNumber, int featureSet)
+			long userId, String type, long buildNumber, String hostname,
+			int featureSet)
 		throws PortalException {
 
-		User user = userPersistence.findByPrimaryKey(userId);
+		User user = userLocalService.getUser(userId);
 		Date now = new Date();
 
 		long syncDeviceId = counterLocalService.increment();
@@ -54,11 +59,22 @@ public class SyncDeviceLocalServiceImpl extends SyncDeviceLocalServiceBaseImpl {
 		syncDevice.setType(type);
 		syncDevice.setBuildNumber(buildNumber);
 		syncDevice.setFeatureSet(featureSet);
+		syncDevice.setHostname(hostname);
 		syncDevice.setStatus(SyncDeviceConstants.STATUS_ACTIVE);
 
 		syncDevicePersistence.update(syncDevice);
 
 		return syncDevice;
+	}
+
+	@Override
+	public List<SyncDevice> getSyncDevices(
+			long userId, int start, int end,
+			OrderByComparator orderByComparator)
+		throws PortalException {
+
+		return syncDevicePersistence.findByUserId(
+			userId, start, end, orderByComparator);
 	}
 
 	@Override
@@ -85,8 +101,8 @@ public class SyncDeviceLocalServiceImpl extends SyncDeviceLocalServiceBaseImpl {
 
 	@Override
 	public SyncDevice updateSyncDevice(
-			long syncDeviceId, String type, int buildNumber, int featureSet,
-			int status)
+			long syncDeviceId, String type, long buildNumber, int featureSet,
+			String hostname, int status)
 		throws PortalException {
 
 		SyncDevice syncDevice = syncDevicePersistence.findByPrimaryKey(
@@ -96,6 +112,7 @@ public class SyncDeviceLocalServiceImpl extends SyncDeviceLocalServiceBaseImpl {
 		syncDevice.setType(type);
 		syncDevice.setBuildNumber(buildNumber);
 		syncDevice.setFeatureSet(featureSet);
+		syncDevice.setHostname(hostname);
 		syncDevice.setStatus(status);
 
 		syncDevicePersistence.update(syncDevice);

@@ -14,16 +14,13 @@
 
 package com.liferay.portal.kernel.template;
 
-import aQute.bnd.annotation.ProviderType;
-
-import com.liferay.portal.kernel.util.ProxyFactory;
+import com.liferay.portal.kernel.util.ServiceProxyFactory;
 
 import java.util.List;
 
 /**
  * @author Juan Fernández
  */
-@ProviderType
 public class TemplateHandlerRegistryUtil {
 
 	public static long[] getClassNameIds() {
@@ -42,7 +39,9 @@ public class TemplateHandlerRegistryUtil {
 		return _templateHandlerRegistry.getTemplateHandlers();
 	}
 
-	private static final TemplateHandlerRegistry _templateHandlerRegistry =
-		ProxyFactory.newServiceTrackedInstance(TemplateHandlerRegistry.class);
+	private static volatile TemplateHandlerRegistry _templateHandlerRegistry =
+		ServiceProxyFactory.newServiceTrackedInstance(
+			TemplateHandlerRegistry.class, TemplateHandlerRegistryUtil.class,
+			"_templateHandlerRegistry", false);
 
 }

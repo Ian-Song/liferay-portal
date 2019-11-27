@@ -14,9 +14,10 @@
 
 package com.liferay.portal.kernel.test.util;
 
-import com.liferay.exportimport.kernel.configuration.ExportImportConfigurationParameterMapFactory;
+import com.liferay.exportimport.kernel.configuration.ExportImportConfigurationParameterMapFactoryUtil;
 import com.liferay.exportimport.kernel.lar.PortletDataHandlerKeys;
 import com.liferay.exportimport.kernel.service.StagingLocalServiceUtil;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.cache.thread.local.Lifecycle;
 import com.liferay.portal.kernel.cache.thread.local.ThreadLocalCacheManager;
 import com.liferay.portal.kernel.model.Group;
@@ -28,16 +29,15 @@ import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.test.randomizerbumpers.NumericStringRandomizerBumper;
 import com.liferay.portal.kernel.test.randomizerbumpers.UniqueStringRandomizerBumper;
 import com.liferay.portal.kernel.util.FriendlyURLNormalizerUtil;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.kernel.util.PropsKeys;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.UnicodeProperties;
 
 import java.io.Serializable;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -69,9 +69,9 @@ public class GroupTestUtil {
 			return scopeGroup;
 		}
 
-		Map<Locale, String> nameMap = new HashMap<>();
-
-		nameMap.put(LocaleUtil.getDefault(), String.valueOf(layout.getPlid()));
+		Map<Locale, String> nameMap = HashMapBuilder.put(
+			LocaleUtil.getDefault(), String.valueOf(layout.getPlid())
+		).build();
 
 		return GroupLocalServiceUtil.addGroup(
 			userId, parentGroupId, Layout.class.getName(), layout.getPlid(),
@@ -94,14 +94,13 @@ public class GroupTestUtil {
 			return group;
 		}
 
-		Map<Locale, String> nameMap = new HashMap<>();
+		Map<Locale, String> nameMap = HashMapBuilder.put(
+			LocaleUtil.getDefault(), name
+		).build();
 
-		nameMap.put(LocaleUtil.getDefault(), name);
-
-		Map<Locale, String> descriptionMap = new HashMap<>();
-
-		descriptionMap.put(
-			LocaleUtil.getDefault(), RandomTestUtil.randomString());
+		Map<Locale, String> descriptionMap = HashMapBuilder.put(
+			LocaleUtil.getDefault(), RandomTestUtil.randomString()
+		).build();
 
 		int type = GroupConstants.TYPE_SITE_OPEN;
 		String friendlyURL =
@@ -127,6 +126,13 @@ public class GroupTestUtil {
 			NumericStringRandomizerBumper.INSTANCE,
 			UniqueStringRandomizerBumper.INSTANCE);
 
+		return addGroup(parentGroupId, name, serviceContext);
+	}
+
+	public static Group addGroup(
+			long parentGroupId, String name, ServiceContext serviceContext)
+		throws Exception {
+
 		Group group = GroupLocalServiceUtil.fetchGroup(
 			TestPropsValues.getCompanyId(), name);
 
@@ -134,14 +140,13 @@ public class GroupTestUtil {
 			return group;
 		}
 
-		Map<Locale, String> nameMap = new HashMap<>();
+		Map<Locale, String> nameMap = HashMapBuilder.put(
+			LocaleUtil.getDefault(), name
+		).build();
 
-		nameMap.put(LocaleUtil.getDefault(), name);
-
-		Map<Locale, String> descriptionMap = new HashMap<>();
-
-		descriptionMap.put(
-			LocaleUtil.getDefault(), RandomTestUtil.randomString());
+		Map<Locale, String> descriptionMap = HashMapBuilder.put(
+			LocaleUtil.getDefault(), RandomTestUtil.randomString()
+		).build();
 
 		int type = GroupConstants.TYPE_SITE_OPEN;
 		String friendlyURL =
@@ -162,6 +167,10 @@ public class GroupTestUtil {
 			friendlyURL, site, active, serviceContext);
 	}
 
+	public static Group deleteGroup(Group group) throws Exception {
+		return GroupLocalServiceUtil.deleteGroup(group);
+	}
+
 	public static void enableLocalStaging(Group group) throws Exception {
 		enableLocalStaging(group, TestPropsValues.getUserId());
 	}
@@ -179,7 +188,8 @@ public class GroupTestUtil {
 		Map<String, Serializable> attributes = serviceContext.getAttributes();
 
 		attributes.putAll(
-			ExportImportConfigurationParameterMapFactory.buildParameterMap());
+			ExportImportConfigurationParameterMapFactoryUtil.
+				buildParameterMap());
 
 		attributes.put(
 			PortletDataHandlerKeys.PORTLET_CONFIGURATION_ALL,

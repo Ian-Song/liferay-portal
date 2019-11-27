@@ -24,9 +24,15 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Map;
 
+import org.osgi.annotation.versioning.ProviderType;
+
 /**
- * @author Raymond Augé
+ * @author     Raymond Augé
+ * @deprecated As of Mueller (7.2.x), replaced by {@link
+ *             com.liferay.layout.admin.kernel.util.Sitemap}
  */
+@Deprecated
+@ProviderType
 public interface Sitemap {
 
 	public void addURLElement(
@@ -42,6 +48,11 @@ public interface Sitemap {
 
 	public String getSitemap(
 			long groupId, boolean privateLayout, ThemeDisplay themeDisplay)
+		throws PortalException;
+
+	public String getSitemap(
+			String layoutUuid, long groupId, boolean privateLayout,
+			ThemeDisplay themeDisplay)
 		throws PortalException;
 
 }

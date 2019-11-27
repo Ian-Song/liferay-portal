@@ -14,9 +14,12 @@
 
 package com.liferay.portal.kernel.transaction;
 
+import org.osgi.annotation.versioning.ProviderType;
+
 /**
  * @author Shuyang Zhou
  */
+@ProviderType
 public interface TransactionStatus {
 
 	public boolean isCompleted();
@@ -24,5 +27,8 @@ public interface TransactionStatus {
 	public boolean isNewTransaction();
 
 	public boolean isRollbackOnly();
+
+	public void suppressLifecycleListenerThrowable(
+		Throwable lifecycleThrowable);
 
 }

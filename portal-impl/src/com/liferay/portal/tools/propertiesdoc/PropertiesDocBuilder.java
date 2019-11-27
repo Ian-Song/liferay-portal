@@ -14,23 +14,26 @@
 
 package com.liferay.portal.tools.propertiesdoc;
 
+import com.liferay.petra.string.CharPool;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.freemarker.FreeMarkerUtil;
-import com.liferay.portal.kernel.util.CharPool;
 import com.liferay.portal.kernel.util.GetterUtil;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.StringUtil;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.tools.ArgumentsUtil;
 import com.liferay.portal.util.FileImpl;
 
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.Writer;
 
+import java.nio.charset.Charset;
+
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,28 +57,12 @@ public class PropertiesDocBuilder {
 	public PropertiesDocBuilder(Map<String, String> arguments)
 		throws IOException {
 
-		String propertiesDestDirName = GetterUtil.getString(
-			arguments.get("properties.dest.dir"));
 		String propertiesFileName = GetterUtil.getString(
 			arguments.get("properties.file"));
-		String title = GetterUtil.getString(arguments.get("properties.title"));
-		boolean toc = GetterUtil.getBoolean(arguments.get("properties.toc"));
 
 		System.out.println("Converting " + propertiesFileName + " to HTML");
 
 		File propertiesFile = new File(propertiesFileName);
-
-		Map<String, Object> context = new HashMap<>();
-
-		context.put("pageTitle", title);
-
-		int pos = propertiesFileName.lastIndexOf(StringPool.SLASH);
-
-		if (pos != -1) {
-			propertiesFileName = propertiesFileName.substring(pos + 1);
-		}
-
-		context.put("propertiesFileName", propertiesFileName);
 
 		List<PropertiesSection> propertiesSections = getPropertiesSections(
 			propertiesFile);
@@ -84,14 +71,30 @@ public class PropertiesDocBuilder {
 			return;
 		}
 
-		context.put("sections", propertiesSections);
+		int pos = propertiesFileName.lastIndexOf(StringPool.SLASH);
 
-		context.put("toc", toc);
+		if (pos != -1) {
+			propertiesFileName = propertiesFileName.substring(pos + 1);
+		}
+
+		Map<String, Object> context = HashMapBuilder.<String, Object>put(
+			"pageTitle", GetterUtil.getString(arguments.get("properties.title"))
+		).put(
+			"propertiesFileName", propertiesFileName
+		).put(
+			"sections", propertiesSections
+		).put(
+			"toc", GetterUtil.getBoolean(arguments.get("properties.toc"))
+		).build();
 
 		try {
 			StringBundler sb = new StringBundler(4);
 
+			String propertiesDestDirName = GetterUtil.getString(
+				arguments.get("properties.dest.dir"));
+
 			sb.append(propertiesDestDirName);
+
 			sb.append(StringPool.SLASH);
 			sb.append(propertiesFileName);
 			sb.append(".html");
@@ -102,12 +105,15 @@ public class PropertiesDocBuilder {
 
 			System.out.println("Writing " + propertiesHTMLFile);
 
-			Writer writer = new FileWriter(propertiesHTMLFile);
+			Charset charset = Charset.forName("UTF-8");
+
+			Writer writer = new OutputStreamWriter(
+				new FileOutputStream(propertiesHTMLFile), charset.newEncoder());
 
 			try {
 				FreeMarkerUtil.process(
-					"com/liferay/portal/tools/propertiesdoc/dependencies/" +
-						"properties.ftl",
+					"com/liferay/portal/tools/propertiesdoc/dependencies" +
+						"/properties.ftl",
 					context, writer);
 			}
 			catch (Exception e) {
@@ -328,7 +334,7 @@ public class PropertiesDocBuilder {
 	protected List<PropertiesSection> getPropertiesSections(File propertiesFile)
 		throws IOException {
 
-		String content = _fileUtil.read(propertiesFile);
+		String content = _fileImpl.read(propertiesFile);
 
 		String[] sections = content.split("\n\n");
 
@@ -393,6 +399,6 @@ public class PropertiesDocBuilder {
 
 	protected static final String INDENT = StringPool.FOUR_SPACES;
 
-	private static final FileImpl _fileUtil = FileImpl.getInstance();
+	private static final FileImpl _fileImpl = FileImpl.getInstance();
 
 }

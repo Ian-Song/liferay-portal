@@ -14,21 +14,32 @@
 
 package com.liferay.knowledge.base.service.impl;
 
-import aQute.bnd.annotation.ProviderType;
-
 import com.liferay.knowledge.base.constants.KBActionKeys;
 import com.liferay.knowledge.base.model.KBFolder;
 import com.liferay.knowledge.base.service.base.KBFolderServiceBaseImpl;
-import com.liferay.knowledge.base.service.permission.KBFolderPermission;
+import com.liferay.portal.aop.AopService;
+import com.liferay.portal.kernel.dao.orm.QueryDefinition;
 import com.liferay.portal.kernel.exception.PortalException;
+import com.liferay.portal.kernel.security.permission.resource.ModelResourcePermission;
+import com.liferay.portal.kernel.security.permission.resource.ModelResourcePermissionHelper;
 import com.liferay.portal.kernel.service.ServiceContext;
+import com.liferay.portal.kernel.util.OrderByComparator;
 
 import java.util.List;
+
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 
 /**
  * @author Brian Wing Shun Chan
  */
-@ProviderType
+@Component(
+	property = {
+		"json.web.service.context.name=kb",
+		"json.web.service.context.path=KBFolder"
+	},
+	service = AopService.class
+)
 public class KBFolderServiceImpl extends KBFolderServiceBaseImpl {
 
 	@Override
@@ -38,22 +49,58 @@ public class KBFolderServiceImpl extends KBFolderServiceBaseImpl {
 			ServiceContext serviceContext)
 		throws PortalException {
 
-		KBFolderPermission.check(
-			getPermissionChecker(), groupId, parentResourcePrimKey,
-			KBActionKeys.ADD_KB_FOLDER);
+		ModelResourcePermissionHelper.check(
+			_kbFolderModelResourcePermission, getPermissionChecker(), groupId,
+			parentResourcePrimKey, KBActionKeys.ADD_KB_FOLDER);
 
 		return kbFolderLocalService.addKBFolder(
 			getUserId(), groupId, parentResourceClassNameId,
 			parentResourcePrimKey, name, description, serviceContext);
 	}
 
+	@Override
 	public KBFolder deleteKBFolder(long kbFolderId) throws PortalException {
-		KBFolderPermission.check(
+		_kbFolderModelResourcePermission.check(
 			getPermissionChecker(), kbFolderId, KBActionKeys.DELETE);
 
 		return kbFolderLocalService.deleteKBFolder(kbFolderId);
 	}
 
+	@Override
+	public KBFolder fetchFirstChildKBFolder(long groupId, long kbFolderId)
+		throws PortalException {
+
+		return fetchFirstChildKBFolder(groupId, kbFolderId, null);
+	}
+
+	@Override
+	public KBFolder fetchFirstChildKBFolder(
+			long groupId, long kbFolderId, OrderByComparator<KBFolder> obc)
+		throws PortalException {
+
+		List<KBFolder> kbFolders = kbFolderPersistence.filterFindByG_P(
+			groupId, kbFolderId, 0, 1, obc);
+
+		if (kbFolders.isEmpty()) {
+			return null;
+		}
+
+		return kbFolders.get(0);
+	}
+
+	@Override
+	public KBFolder fetchKBFolder(long kbFolderId) throws PortalException {
+		KBFolder kbFolder = kbFolderLocalService.fetchKBFolder(kbFolderId);
+
+		if (kbFolder != null) {
+			_kbFolderModelResourcePermission.check(
+				getPermissionChecker(), kbFolder, KBActionKeys.VIEW);
+		}
+
+		return kbFolder;
+	}
+
+	@Override
 	public KBFolder fetchKBFolderByUrlTitle(
 			long groupId, long parentKbFolderId, String urlTitle)
 		throws PortalException {
@@ -65,7 +112,7 @@ public class KBFolderServiceImpl extends KBFolderServiceBaseImpl {
 			return null;
 		}
 
-		KBFolderPermission.check(
+		_kbFolderModelResourcePermission.check(
 			getPermissionChecker(), kbFolder, KBActionKeys.VIEW);
 
 		return kbFolder;
@@ -73,12 +120,13 @@ public class KBFolderServiceImpl extends KBFolderServiceBaseImpl {
 
 	@Override
 	public KBFolder getKBFolder(long kbFolderId) throws PortalException {
-		KBFolderPermission.check(
+		_kbFolderModelResourcePermission.check(
 			getPermissionChecker(), kbFolderId, KBActionKeys.VIEW);
 
 		return kbFolderLocalService.getKBFolder(kbFolderId);
 	}
 
+	@Override
 	public KBFolder getKBFolderByUrlTitle(
 			long groupId, long parentKbFolderId, String urlTitle)
 		throws PortalException {
@@ -86,7 +134,7 @@ public class KBFolderServiceImpl extends KBFolderServiceBaseImpl {
 		KBFolder kbFolder = kbFolderLocalService.getKBFolderByUrlTitle(
 			groupId, parentKbFolderId, urlTitle);
 
-		KBFolderPermission.check(
+		_kbFolderModelResourcePermission.check(
 			getPermissionChecker(), kbFolder, KBActionKeys.VIEW);
 
 		return kbFolder;
@@ -102,6 +150,28 @@ public class KBFolderServiceImpl extends KBFolderServiceBaseImpl {
 	}
 
 	@Override
+	public List<Object> getKBFoldersAndKBArticles(
+		long groupId, long parentResourcePrimKey, int status, int start,
+		int end, OrderByComparator<?> orderByComparator) {
+
+		QueryDefinition<?> queryDefinition = new QueryDefinition<>(
+			status, start, end, orderByComparator);
+
+		return kbFolderFinder.filterFindF_A_ByG_P(
+			groupId, parentResourcePrimKey, queryDefinition);
+	}
+
+	@Override
+	public int getKBFoldersAndKBArticlesCount(
+		long groupId, long parentResourcePrimKey, int status) {
+
+		QueryDefinition<?> queryDefinition = new QueryDefinition<>(status);
+
+		return kbFolderFinder.filterCountF_A_ByG_P(
+			groupId, parentResourcePrimKey, queryDefinition);
+	}
+
+	@Override
 	public int getKBFoldersCount(long groupId, long parentKBFolderId)
 		throws PortalException {
 
@@ -112,7 +182,7 @@ public class KBFolderServiceImpl extends KBFolderServiceBaseImpl {
 	public void moveKBFolder(long kbFolderId, long parentKBFolderId)
 		throws PortalException {
 
-		KBFolderPermission.check(
+		_kbFolderModelResourcePermission.check(
 			getPermissionChecker(), kbFolderId, KBActionKeys.MOVE_KB_FOLDER);
 
 		kbFolderLocalService.moveKBFolder(kbFolderId, parentKBFolderId);
@@ -121,15 +191,21 @@ public class KBFolderServiceImpl extends KBFolderServiceBaseImpl {
 	@Override
 	public KBFolder updateKBFolder(
 			long parentResourceClassNameId, long parentResourcePrimKey,
-			long kbFolderId, String name, String description)
+			long kbFolderId, String name, String description,
+			ServiceContext serviceContext)
 		throws PortalException {
 
-		KBFolderPermission.check(
+		_kbFolderModelResourcePermission.check(
 			getPermissionChecker(), kbFolderId, KBActionKeys.UPDATE);
 
 		return kbFolderLocalService.updateKBFolder(
 			parentResourceClassNameId, parentResourcePrimKey, kbFolderId, name,
-			description);
+			description, serviceContext);
 	}
+
+	@Reference(
+		target = "(model.class.name=com.liferay.knowledge.base.model.KBFolder)"
+	)
+	private ModelResourcePermission<KBFolder> _kbFolderModelResourcePermission;
 
 }

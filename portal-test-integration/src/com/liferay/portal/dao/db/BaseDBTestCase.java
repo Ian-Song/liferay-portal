@@ -14,9 +14,9 @@
 
 package com.liferay.portal.dao.db;
 
+import com.liferay.petra.string.StringBundler;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.dao.db.DB;
-import com.liferay.portal.kernel.util.StringBundler;
-import com.liferay.portal.kernel.util.StringPool;
 
 import java.io.IOException;
 
@@ -24,9 +24,12 @@ import org.junit.Assert;
 import org.junit.Test;
 
 /**
- * @author Miguel Pastor
- * @author László Csontos
+ * @author     Miguel Pastor
+ * @author     László Csontos
+ * @deprecated As of Mueller (7.2.x), replaced by {@link
+ *             com.liferay.portal.kernel.dao.db.BaseDBTestCase}
  */
+@Deprecated
 public abstract class BaseDBTestCase {
 
 	@Test
@@ -40,6 +43,7 @@ public abstract class BaseDBTestCase {
 		sb.append(StringPool.NEW_LINE);
 
 		Assert.assertEquals(sb.toString(), buildSQL(_BOOLEAN_LITERAL_QUERY));
+
 		Assert.assertEquals(
 			_BOOLEAN_PATTERN_QUERY + StringPool.NEW_LINE,
 			buildSQL(_BOOLEAN_PATTERN_QUERY));

@@ -48,6 +48,37 @@
 	Liferay.BrowserSelectors.run();
 </aui:script>
 
+<aui:script>
+	if (Liferay.Data.ICONS_INLINE_SVG) {
+		svg4everybody(
+			{
+				attributeName: 'data-href',
+				polyfill: true
+			}
+		);
+	}
+</aui:script>
+
+<aui:script require="metal-dom/src/all/dom as dom" sandbox="<%= true %>">
+	var focusInPortletHandler = dom.delegate(
+		document,
+		'focusin',
+		'.portlet',
+		function(event) {
+			dom.addClasses(dom.closest(event.delegateTarget, '.portlet'), 'open');
+		}
+	);
+
+	var focusOutPortletHandler = dom.delegate(
+		document,
+		'focusout',
+		'.portlet',
+		function(event) {
+			dom.removeClasses(dom.closest(event.delegateTarget, '.portlet'), 'open');
+		}
+	);
+</aui:script>
+
 <aui:script use="aui-base">
 	if (A.UA.mobile) {
 		Liferay.Util.addInputCancel();
@@ -71,27 +102,14 @@ if (layout != null) {
 		<aui:script position="inline">
 			Liferay.Data.layoutConfig = {
 				container: '#main-content',
-
-				<c:choose>
-					<c:when test="<%= !themeDisplay.isFreeformLayout() %>">
-						dropNodes: '.portlet-column',
-					</c:when>
-					<c:otherwise>
-						dropNodes: '.portlet-boundary',
-						freeForm: true,
-						freeformPlaceholderClass: 'lfr-freeform-layout-drag-indicator',
-					</c:otherwise>
-				</c:choose>
+				dropNodes: '.portlet-column',
 
 				<c:choose>
 					<c:when test="<%= BrowserSnifferUtil.isMobile(request) %>">
 						handles: Liferay.Data.PORTLET_TOUCH_DRAG_HANDLE_SELECTOR || ['.portlet-title-default'],
 					</c:when>
-					<c:when test="<%= !themeDisplay.isFreeformLayout() %>">
-						handles: Liferay.Data.PORTLET_DRAG_HANDLE_SELECTOR || ['.portlet-title-default', '.portlet-topper'],
-					</c:when>
 					<c:otherwise>
-						handles: Liferay.Data.PORTLET_FREEFORM_DRAG_HANDLE_SELECTOR || ['.portlet-header-bar', '.portlet-title-default', '.portlet-topper'],
+						handles: Liferay.Data.PORTLET_DRAG_HANDLE_SELECTOR || ['.portlet-title-default', '.portlet-topper'],
 					</c:otherwise>
 				</c:choose>
 
@@ -103,6 +121,8 @@ if (layout != null) {
 				nestedPortletId: '_<%= PortletKeys.NESTED_PORTLETS %>_INSTANCE',
 				portletBoundary: '.portlet-boundary'
 			};
+
+			Liferay.fire('dataLayoutConfigReady');
 		</aui:script>
 
 		<aui:script use="liferay-layout">
@@ -118,34 +138,6 @@ if (layout != null) {
 			function() {
 				new Liferay.Navigation(
 					{
-						hasAddLayoutPermission: <%= GroupPermissionUtil.contains(permissionChecker, scopeGroupId, ActionKeys.ADD_LAYOUT) %>,
-						layoutIds: [
-
-							<%
-							Group scopeGroup = GroupLocalServiceUtil.getGroup(scopeGroupId);
-
-							for (int i = 0; (layouts != null) && (i < layouts.size()); i++) {
-								Layout curLayout = (Layout)layouts.get(i);
-							%>
-
-								<c:if test="<%= (i > 0) %>">,</c:if>
-
-								{
-									deletable: !A.UA.touchMobile && <%= LayoutPermissionUtil.contains(permissionChecker, curLayout, ActionKeys.DELETE) %>,
-									id: <%= curLayout.getLayoutId() %>,
-									sortable: <%= GroupPermissionUtil.contains(permissionChecker, scopeGroup, ActionKeys.MANAGE_LAYOUTS) && SitesUtil.isLayoutSortable(curLayout) %>
-								}
-
-							<%
-							}
-							%>
-
-							],
-
-						<c:if test="<%= layoutRevision != null %>">
-							layoutSetBranchId: '<%= layoutRevision.getLayoutSetBranchId() %>',
-						</c:if>
-
 						navBlock: navBlock
 					}
 				);
@@ -207,7 +199,7 @@ if (layout != null) {
 		%>
 
 		Liferay.currentURL = '<%= HtmlUtil.escapeJS(currentURL) %>';
-		Liferay.currentURLEncoded = '<%= HttpUtil.encodeURL(currentURL) %>';
+		Liferay.currentURLEncoded = '<%= HtmlUtil.escapeJS(URLCodec.encodeURL(currentURL)) %>';
 
 	// ]]>
 </script>
@@ -221,14 +213,28 @@ if (layout != null) {
 
 	UnicodeProperties layoutSetSettings = layoutSet.getSettingsProperties();
 
+	UnicodeProperties masterLayoutTypeSettings = new UnicodeProperties();
+
+	if (layout.getMasterLayoutPlid() > 0) {
+		Layout masterLayout = LayoutLocalServiceUtil.fetchLayout(layout.getMasterLayoutPlid());
+
+		if (masterLayout != null) {
+			masterLayoutTypeSettings = masterLayout.getTypeSettingsProperties();
+		}
+	}
+
 	UnicodeProperties layoutTypeSettings = layout.getTypeSettingsProperties();
 	%>
 
 	<script type="text/javascript">
 		// <![CDATA[
-			<%= GetterUtil.getString(layoutSetSettings.getProperty("javascript")) %>
+			<c:if test="<%= !layout.isTypeControlPanel() %>">
+				<%= GetterUtil.getString(layoutSetSettings.getProperty("javascript")) %>
 
-			<%= GetterUtil.getString(layoutTypeSettings.getProperty("javascript")) %>
+				<%= GetterUtil.getString(masterLayoutTypeSettings.getProperty("javascript")) %>
+
+				<%= GetterUtil.getString(layoutTypeSettings.getProperty("javascript")) %>
+			</c:if>
 		// ]]>
 	</script>
 </c:if>

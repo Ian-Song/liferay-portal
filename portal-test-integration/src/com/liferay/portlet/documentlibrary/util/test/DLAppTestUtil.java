@@ -15,28 +15,30 @@
 package com.liferay.portlet.documentlibrary.util.test;
 
 import com.liferay.document.library.kernel.model.DLFileEntryTypeConstants;
-import com.liferay.document.library.kernel.model.DLSyncConstants;
 import com.liferay.document.library.kernel.service.DLAppLocalServiceUtil;
 import com.liferay.document.library.kernel.service.DLFileEntryLocalServiceUtil;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.repository.model.FileEntry;
+import com.liferay.portal.kernel.repository.model.FileVersion;
 import com.liferay.portal.kernel.service.ServiceContext;
-import com.liferay.portal.kernel.test.util.RandomTestUtil;
+import com.liferay.portal.kernel.test.util.TestDataConstants;
 import com.liferay.portal.kernel.test.util.TestPropsValues;
 import com.liferay.portal.kernel.util.ContentTypes;
-import com.liferay.portal.kernel.util.StringPool;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.workflow.WorkflowConstants;
 import com.liferay.portal.kernel.workflow.WorkflowThreadLocal;
-import com.liferay.portal.test.randomizerbumpers.TikaSafeRandomizerBumper;
 
 import java.io.Serializable;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
- * @author Alexander Chow
+ * @author     Alexander Chow
+ * @deprecated As of Mueller (7.2.x), replaced by {@link
+ *             com.liferay.document.library.test.util.DLAppTestUtil}
  */
+@Deprecated
 public abstract class DLAppTestUtil {
 
 	public static FileEntry addFileEntryWithWorkflow(
@@ -57,8 +59,7 @@ public abstract class DLAppTestUtil {
 			FileEntry fileEntry = DLAppLocalServiceUtil.addFileEntry(
 				userId, groupId, folderId, sourceFileName,
 				ContentTypes.TEXT_PLAIN, title, StringPool.BLANK,
-				StringPool.BLANK,
-				RandomTestUtil.randomBytes(TikaSafeRandomizerBumper.INSTANCE),
+				StringPool.BLANK, TestDataConstants.TEST_BYTE_ARRAY,
 				serviceContext);
 
 			if (approved) {
@@ -102,14 +103,17 @@ public abstract class DLAppTestUtil {
 			FileEntry fileEntry, ServiceContext serviceContext)
 		throws Exception {
 
-		Map<String, Serializable> workflowContext = new HashMap<>();
+		FileVersion fileVersion = fileEntry.getFileVersion();
 
-		workflowContext.put(WorkflowConstants.CONTEXT_URL, "http://localhost");
-		workflowContext.put("event", DLSyncConstants.EVENT_ADD);
+		Map<String, Serializable> workflowContext =
+			HashMapBuilder.<String, Serializable>put(
+				WorkflowConstants.CONTEXT_URL, "http://localhost"
+			).put(
+				"event", "add"
+			).build();
 
 		DLFileEntryLocalServiceUtil.updateStatus(
-			TestPropsValues.getUserId(),
-			fileEntry.getFileVersion().getFileVersionId(),
+			TestPropsValues.getUserId(), fileVersion.getFileVersionId(),
 			WorkflowConstants.STATUS_APPROVED, serviceContext, workflowContext);
 
 		return DLAppLocalServiceUtil.getFileEntry(fileEntry.getFileEntryId());

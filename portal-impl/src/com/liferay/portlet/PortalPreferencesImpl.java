@@ -14,6 +14,8 @@
 
 package com.liferay.portlet;
 
+import com.liferay.petra.lang.HashUtil;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.exception.SystemException;
 import com.liferay.portal.kernel.log.Log;
@@ -24,9 +26,7 @@ import com.liferay.portal.kernel.service.persistence.PortalPreferencesUtil;
 import com.liferay.portal.kernel.transaction.Propagation;
 import com.liferay.portal.kernel.transaction.TransactionConfig;
 import com.liferay.portal.kernel.transaction.TransactionInvokerUtil;
-import com.liferay.portal.kernel.util.HashUtil;
 import com.liferay.portal.kernel.util.SetUtil;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.Validator;
 
 import java.io.IOException;
@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
@@ -96,10 +97,25 @@ public class PortalPreferencesImpl
 
 	@Override
 	public PortalPreferencesImpl clone() {
+		String originalXML = getOriginalXML();
+
 		if (_portalPreferences == null) {
 			return new PortalPreferencesImpl(
 				getOwnerId(), getOwnerType(), getOriginalXML(),
 				new HashMap<>(getOriginalPreferences()), isSignedIn());
+		}
+
+		if (Objects.equals(originalXML, _portalPreferences.getPreferences())) {
+			PortalPreferencesImpl portalPreferencesImpl =
+				new PortalPreferencesImpl(
+					getOwnerId(), getOwnerType(), originalXML,
+					new HashMap<>(getOriginalPreferences()), isSignedIn());
+
+			portalPreferencesImpl._portalPreferences =
+				(com.liferay.portal.kernel.model.PortalPreferences)
+					_portalPreferences.clone();
+
+			return portalPreferencesImpl;
 		}
 
 		return new PortalPreferencesImpl(_portalPreferences, isSignedIn());
@@ -115,17 +131,25 @@ public class PortalPreferencesImpl
 			return false;
 		}
 
-		PortalPreferencesImpl portalPreferences = (PortalPreferencesImpl)obj;
+		PortalPreferencesImpl portalPreferencesImpl =
+			(PortalPreferencesImpl)obj;
 
-		if ((getOwnerId() == portalPreferences.getOwnerId()) &&
-			(getOwnerType() == portalPreferences.getOwnerType()) &&
-			getPreferences().equals(portalPreferences.getPreferences())) {
+		if ((getOwnerId() == portalPreferencesImpl.getOwnerId()) &&
+			(getOwnerType() == portalPreferencesImpl.getOwnerType()) &&
+			getPreferences().equals(portalPreferencesImpl.getPreferences())) {
 
 			return true;
 		}
-		else {
-			return false;
+
+		return false;
+	}
+
+	public long getMvccVersion() {
+		if (_portalPreferences == null) {
+			return -1;
 		}
+
+		return _portalPreferences.getMvccVersion();
 	}
 
 	@Override
@@ -409,11 +433,9 @@ public class PortalPreferencesImpl
 			}
 			catch (Exception e) {
 				if (isCausedByStaleObjectException(e)) {
-					long ownerId = getOwnerId();
-					int ownerType = getOwnerType();
-
 					com.liferay.portal.kernel.model.PortalPreferences
-						portalPreferences = _reload(ownerId, ownerType);
+						portalPreferences = _reload(
+							getOwnerId(), getOwnerType());
 
 					if (portalPreferences == null) {
 						continue;
@@ -451,9 +473,12 @@ public class PortalPreferencesImpl
 		if (Validator.isNull(namespace)) {
 			return key;
 		}
-		else {
-			return namespace.concat(StringPool.POUND).concat(key);
-		}
+
+		return namespace.concat(
+			StringPool.POUND
+		).concat(
+			key
+		);
 	}
 
 	private com.liferay.portal.kernel.model.PortalPreferences _reload(

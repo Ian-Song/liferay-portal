@@ -22,12 +22,14 @@ import com.liferay.opensocial.model.OAuthConsumer;
 import com.liferay.opensocial.model.OAuthConsumerConstants;
 import com.liferay.opensocial.model.impl.OAuthConsumerImpl;
 import com.liferay.opensocial.util.PortletPropsValues;
+import com.liferay.petra.string.CharPool;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.util.FileUtil;
 import com.liferay.portal.kernel.util.PropsKeys;
 import com.liferay.portal.kernel.util.PropsUtil;
-import com.liferay.portal.kernel.util.StringPool;
+import com.liferay.portal.kernel.util.StringUtil;
 
 import org.apache.shindig.gadgets.oauth.OAuthStore;
 
@@ -46,13 +48,14 @@ public class LiferayOAuthStoreProvider implements Provider<OAuthStore> {
 		_oAuthStore = new LiferayOAuthStore(oAuthConsumer);
 	}
 
+	@Override
 	public OAuthStore get() {
 		return _oAuthStore;
 	}
 
 	private String _convertFromOpenSsl(String key) {
 		key = key.replaceAll(_OPEN_SSL_A_Z, StringPool.BLANK);
-		key = key.replace(StringPool.NEW_LINE, StringPool.BLANK);
+		key = StringUtil.replace(key, CharPool.NEW_LINE, StringPool.BLANK);
 
 		return key;
 	}
@@ -62,14 +65,16 @@ public class LiferayOAuthStoreProvider implements Provider<OAuthStore> {
 
 		OAuthConsumer oAuthConsumer = new OAuthConsumerImpl();
 
-		oAuthConsumer.setConsumerKey(_DEFAULT_CONSUMER_KEY);
 		oAuthConsumer.setServiceName(_DEFAULT_SERVICE_NAME);
+		oAuthConsumer.setConsumerKey(_DEFAULT_CONSUMER_KEY);
 
 		String consumerSecret = null;
 
-		String path = PropsUtil.get(PropsKeys.LIFERAY_HOME).concat(_KEY_DIR);
+		String liferayHome = PropsUtil.get(PropsKeys.LIFERAY_HOME);
 
-		path = path.replaceAll(StringPool.QUOTE, StringPool.BLANK);
+		String path = liferayHome.concat(_KEY_DIR);
+
+		path = StringUtil.removeChar(path, CharPool.QUOTE);
 
 		keyFileName = path.concat(keyFileName);
 
@@ -95,6 +100,7 @@ public class LiferayOAuthStoreProvider implements Provider<OAuthStore> {
 		consumerSecret = _convertFromOpenSsl(consumerSecret);
 
 		oAuthConsumer.setConsumerSecret(consumerSecret);
+
 		oAuthConsumer.setKeyType(OAuthConsumerConstants.KEY_TYPE_RSA_PRIVATE);
 		oAuthConsumer.setKeyName(keyName);
 

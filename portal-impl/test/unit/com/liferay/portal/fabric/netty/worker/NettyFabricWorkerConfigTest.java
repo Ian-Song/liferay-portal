@@ -14,13 +14,13 @@
 
 package com.liferay.portal.fabric.netty.worker;
 
-import com.liferay.portal.kernel.process.ProcessCallable;
-import com.liferay.portal.kernel.process.ProcessConfig;
-import com.liferay.portal.kernel.process.ProcessConfig.Builder;
-import com.liferay.portal.kernel.process.ProcessException;
-import com.liferay.portal.kernel.process.local.ReturnProcessCallable;
+import com.liferay.petra.process.ProcessCallable;
+import com.liferay.petra.process.ProcessConfig;
+import com.liferay.petra.process.ProcessException;
+import com.liferay.petra.string.StringPool;
+import com.liferay.portal.fabric.ReturnProcessCallable;
 import com.liferay.portal.kernel.test.rule.CodeCoverageAssertor;
-import com.liferay.portal.kernel.util.StringPool;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.util.SerializableUtil;
 
 import java.nio.file.Path;
@@ -28,7 +28,6 @@ import java.nio.file.Paths;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,7 +57,7 @@ public class NettyFabricWorkerConfigTest {
 			Assert.assertEquals("Process config is null", npe.getMessage());
 		}
 
-		Builder builder = new Builder();
+		ProcessConfig.Builder builder = new ProcessConfig.Builder();
 
 		ProcessConfig processConfig = builder.build();
 
@@ -85,7 +84,7 @@ public class NettyFabricWorkerConfigTest {
 		}
 
 		NettyFabricWorkerConfig<String> nettyFabricWorkerConfig =
-			new NettyFabricWorkerConfig<String>(
+			new NettyFabricWorkerConfig<>(
 				id, processConfig, processCallable,
 				Collections.<Path, Path>emptyMap());
 
@@ -108,7 +107,7 @@ public class NettyFabricWorkerConfigTest {
 
 	@Test
 	public void testSerialization() throws ProcessException {
-		Builder builder = new Builder();
+		ProcessConfig.Builder builder = new ProcessConfig.Builder();
 
 		List<String> arguments = Arrays.asList("x", "y", "z");
 
@@ -134,10 +133,11 @@ public class NettyFabricWorkerConfigTest {
 		ProcessCallable<String> processCallable = new ReturnProcessCallable<>(
 			"Test ProcessCallable");
 
-		Map<Path, Path> inputPathMap = new HashMap<>();
-
-		inputPathMap.put(Paths.get("path1"), Paths.get("path2"));
-		inputPathMap.put(Paths.get("path3"), Paths.get("path4"));
+		Map<Path, Path> inputPathMap = HashMapBuilder.<Path, Path>put(
+			Paths.get("path1"), Paths.get("path2")
+		).put(
+			Paths.get("path3"), Paths.get("path4")
+		).build();
 
 		NettyFabricWorkerConfig<String> copyNettyFabricWorkerConfig =
 			(NettyFabricWorkerConfig<String>)SerializableUtil.deserialize(

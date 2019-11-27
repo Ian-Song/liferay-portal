@@ -14,14 +14,13 @@
 
 package com.liferay.portal.dao.orm.hibernate;
 
-import com.liferay.portal.kernel.dao.orm.ClassLoaderSession;
 import com.liferay.portal.kernel.dao.orm.Dialect;
 import com.liferay.portal.kernel.dao.orm.ORMException;
 import com.liferay.portal.kernel.dao.orm.Session;
 import com.liferay.portal.kernel.dao.orm.SessionFactory;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
-import com.liferay.portal.kernel.util.ClassLoaderUtil;
+import com.liferay.portal.kernel.util.PortalClassLoaderUtil;
 import com.liferay.portal.kernel.util.PreloadClassLoader;
 import com.liferay.portal.util.PropsValues;
 
@@ -56,10 +55,6 @@ public class SessionFactoryImpl implements SessionFactory {
 	@Override
 	public Dialect getDialect() throws ORMException {
 		return new DialectImpl(_sessionFactoryImplementor.getDialect());
-	}
-
-	public ClassLoader getSessionFactoryClassLoader() {
-		return _sessionFactoryClassLoader;
 	}
 
 	public SessionFactoryImplementor getSessionFactoryImplementor() {
@@ -97,12 +92,9 @@ public class SessionFactoryImpl implements SessionFactory {
 	public void setSessionFactoryClassLoader(
 		ClassLoader sessionFactoryClassLoader) {
 
-		ClassLoader portalClassLoader = ClassLoaderUtil.getPortalClassLoader();
+		if (sessionFactoryClassLoader !=
+				PortalClassLoaderUtil.getClassLoader()) {
 
-		if (sessionFactoryClassLoader == portalClassLoader) {
-			_sessionFactoryClassLoader = sessionFactoryClassLoader;
-		}
-		else {
 			_sessionFactoryClassLoader = new PreloadClassLoader(
 				sessionFactoryClassLoader, getPreloadClassLoaderClasses());
 		}
@@ -120,7 +112,7 @@ public class SessionFactoryImpl implements SessionFactory {
 
 			for (String className : _PRELOAD_CLASS_NAMES) {
 				ClassLoader portalClassLoader =
-					ClassLoaderUtil.getPortalClassLoader();
+					PortalClassLoaderUtil.getClassLoader();
 
 				Class<?> clazz = portalClassLoader.loadClass(className);
 
@@ -135,17 +127,7 @@ public class SessionFactoryImpl implements SessionFactory {
 	}
 
 	protected Session wrapSession(org.hibernate.Session session) {
-		Session liferaySession = new SessionImpl(session);
-
-		if (_sessionFactoryClassLoader != null) {
-
-			// LPS-4190
-
-			liferaySession = new ClassLoaderSession(
-				liferaySession, _sessionFactoryClassLoader);
-		}
-
-		return liferaySession;
+		return new SessionImpl(session, _sessionFactoryClassLoader);
 	}
 
 	private static final String[] _PRELOAD_CLASS_NAMES =

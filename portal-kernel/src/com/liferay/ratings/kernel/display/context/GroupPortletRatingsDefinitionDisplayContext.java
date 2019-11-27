@@ -16,6 +16,7 @@ package com.liferay.ratings.kernel.display.context;
 
 import com.liferay.portal.kernel.service.PortletLocalServiceUtil;
 import com.liferay.portal.kernel.theme.ThemeDisplay;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.PropertiesParamUtil;
 import com.liferay.portal.kernel.util.UnicodeProperties;
 import com.liferay.portal.kernel.util.Validator;
@@ -37,9 +38,10 @@ import javax.servlet.http.HttpServletRequest;
 public class GroupPortletRatingsDefinitionDisplayContext {
 
 	public GroupPortletRatingsDefinitionDisplayContext(
-		UnicodeProperties groupTypeSettings, HttpServletRequest request) {
+		UnicodeProperties groupTypeSettings,
+		HttpServletRequest httpServletRequest) {
 
-		_populateRatingsTypeMaps(groupTypeSettings, request);
+		_populateRatingsTypeMaps(groupTypeSettings, httpServletRequest);
 	}
 
 	public Map<String, Map<String, RatingsType>> getGroupRatingsTypeMaps() {
@@ -47,7 +49,8 @@ public class GroupPortletRatingsDefinitionDisplayContext {
 	}
 
 	private void _populateRatingsTypeMaps(
-		UnicodeProperties groupTypeSettings, HttpServletRequest request) {
+		UnicodeProperties groupTypeSettings,
+		HttpServletRequest httpServletRequest) {
 
 		Map<String, PortletRatingsDefinitionValues>
 			portletRatingsDefinitionValuesMap =
@@ -66,8 +69,9 @@ public class GroupPortletRatingsDefinitionDisplayContext {
 
 			String portletId = portletRatingsDefinitionValues.getPortletId();
 
-			ThemeDisplay themeDisplay = (ThemeDisplay)request.getAttribute(
-				WebKeys.THEME_DISPLAY);
+			ThemeDisplay themeDisplay =
+				(ThemeDisplay)httpServletRequest.getAttribute(
+					WebKeys.THEME_DISPLAY);
 
 			if (!PortletLocalServiceUtil.hasPortlet(
 					themeDisplay.getCompanyId(), portletId)) {
@@ -77,13 +81,9 @@ public class GroupPortletRatingsDefinitionDisplayContext {
 
 			String className = entry.getKey();
 
-			Map<String, RatingsType> ratingsTypeMap = new HashMap<>();
-
-			String propertyKey = RatingsDataTransformerUtil.getPropertyKey(
-				className);
-
 			String groupRatingsTypeString = PropertiesParamUtil.getString(
-				groupTypeSettings, request, propertyKey);
+				groupTypeSettings, httpServletRequest,
+				RatingsDataTransformerUtil.getPropertyKey(className));
 
 			RatingsType ratingsType = null;
 
@@ -91,7 +91,9 @@ public class GroupPortletRatingsDefinitionDisplayContext {
 				ratingsType = RatingsType.parse(groupRatingsTypeString);
 			}
 
-			ratingsTypeMap.put(className, ratingsType);
+			Map<String, RatingsType> ratingsTypeMap = HashMapBuilder.put(
+				className, ratingsType
+			).build();
 
 			_groupRatingsTypeMaps.put(portletId, ratingsTypeMap);
 		}

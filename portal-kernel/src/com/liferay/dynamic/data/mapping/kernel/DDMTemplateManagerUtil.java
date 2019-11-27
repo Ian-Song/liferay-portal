@@ -14,11 +14,9 @@
 
 package com.liferay.dynamic.data.mapping.kernel;
 
-import aQute.bnd.annotation.ProviderType;
-
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.service.ServiceContext;
-import com.liferay.portal.kernel.util.ProxyFactory;
+import com.liferay.portal.kernel.util.ServiceProxyFactory;
 
 import java.io.File;
 
@@ -28,7 +26,6 @@ import java.util.Map;
 /**
  * @author Marcellus Tavares
  */
-@ProviderType
 public class DDMTemplateManagerUtil {
 
 	public static DDMTemplate addTemplate(
@@ -60,7 +57,9 @@ public class DDMTemplateManagerUtil {
 		return _ddmTemplateManager.getTemplate(templateId);
 	}
 
-	private static final DDMTemplateManager _ddmTemplateManager =
-		ProxyFactory.newServiceTrackedInstance(DDMTemplateManager.class);
+	private static volatile DDMTemplateManager _ddmTemplateManager =
+		ServiceProxyFactory.newServiceTrackedInstance(
+			DDMTemplateManager.class, DDMTemplateManagerUtil.class,
+			"_ddmTemplateManager", false);
 
 }

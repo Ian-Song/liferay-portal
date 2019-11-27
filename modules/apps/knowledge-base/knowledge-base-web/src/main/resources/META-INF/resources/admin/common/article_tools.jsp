@@ -24,9 +24,9 @@ int status = (Integer)request.getAttribute(KBWebKeys.KNOWLEDGE_BASE_STATUS);
 
 <div class="kb-article-tools">
 	<c:if test="<%= kbGroupServiceConfiguration.sourceURLEnabled() && Validator.isUrl(kbArticle.getSourceURL()) %>">
-		<a href="<%= kbArticle.getSourceURL() %>" target="_blank">
+		<a href="<%= HtmlUtil.escapeAttribute(kbArticle.getSourceURL()) %>" target="_blank">
 			<span class="kb-article-source-url label label-success">
-				<liferay-ui:message key="<%= kbGroupServiceConfiguration.sourceURLEditMessageKey() %>" />
+				<liferay-ui:message key="<%= HtmlUtil.escape(kbGroupServiceConfiguration.sourceURLEditMessageKey()) %>" />
 			</span>
 		</a>
 	</c:if>
@@ -37,7 +37,7 @@ int status = (Integer)request.getAttribute(KBWebKeys.KNOWLEDGE_BASE_STATUS);
 			<portlet:param name="resourcePrimKey" value="<%= String.valueOf(kbArticle.getResourcePrimKey()) %>" />
 		</liferay-portlet:resourceURL>
 
-		<liferay-ui:rss
+		<liferay-rss:rss
 			delta="<%= rssDelta %>"
 			displayStyle="<%= rssDisplayStyle %>"
 			feedType="<%= rssFeedType %>"
@@ -56,8 +56,9 @@ int status = (Integer)request.getAttribute(KBWebKeys.KNOWLEDGE_BASE_STATUS);
 					</liferay-portlet:actionURL>
 
 					<liferay-ui:icon
-						iconCssClass="icon-remove-sign"
+						icon="times-circle"
 						label="<%= true %>"
+						markupView="lexicon"
 						message="unsubscribe"
 						url="<%= unsubscribeKBArticleURL %>"
 					/>
@@ -70,8 +71,9 @@ int status = (Integer)request.getAttribute(KBWebKeys.KNOWLEDGE_BASE_STATUS);
 					</liferay-portlet:actionURL>
 
 					<liferay-ui:icon
-						iconCssClass="icon-ok-sign"
+						icon="check-circle-full"
 						label="<%= true %>"
+						markupView="lexicon"
 						message="subscribe"
 						url="<%= subscribeKBArticleURL %>"
 					/>
@@ -82,14 +84,16 @@ int status = (Integer)request.getAttribute(KBWebKeys.KNOWLEDGE_BASE_STATUS);
 		<c:if test="<%= enableKBArticleHistory && (kbArticle.isApproved() || !kbArticle.isFirstVersion()) %>">
 			<liferay-portlet:renderURL var="historyURL">
 				<portlet:param name="mvcPath" value='<%= templatePath + "history.jsp" %>' />
+				<portlet:param name="redirect" value="<%= redirect %>" />
 				<portlet:param name="resourceClassNameId" value="<%= String.valueOf(kbArticle.getClassNameId()) %>" />
 				<portlet:param name="resourcePrimKey" value="<%= String.valueOf(kbArticle.getResourcePrimKey()) %>" />
 				<portlet:param name="status" value="<%= String.valueOf(status) %>" />
 			</liferay-portlet:renderURL>
 
 			<liferay-ui:icon
-				iconCssClass="icon-file-alt"
+				icon="document"
 				label="<%= true %>"
+				markupView="lexicon"
 				message="history"
 				url="<%= historyURL %>"
 			/>
@@ -108,10 +112,108 @@ int status = (Integer)request.getAttribute(KBWebKeys.KNOWLEDGE_BASE_STATUS);
 			%>
 
 			<liferay-ui:icon
-				iconCssClass="icon-print"
+				icon="print"
 				label="<%= true %>"
+				markupView="lexicon"
 				message="print"
 				url="<%= taglibURL %>"
+			/>
+		</c:if>
+
+		<c:if test="<%= (!rootPortletId.equals(KBPortletKeys.KNOWLEDGE_BASE_DISPLAY) || DisplayPermission.contains(permissionChecker, scopeGroupId, KBActionKeys.ADMINISTRATOR)) && KBArticlePermission.contains(permissionChecker, kbArticle, KBActionKeys.UPDATE) %>">
+			<liferay-portlet:renderURL var="editURL">
+				<portlet:param name="mvcPath" value='<%= templatePath + "edit_article.jsp" %>' />
+				<portlet:param name="redirect" value="<%= redirect %>" />
+				<portlet:param name="resourceClassNameId" value="<%= String.valueOf(kbArticle.getClassNameId()) %>" />
+				<portlet:param name="resourcePrimKey" value="<%= String.valueOf(kbArticle.getResourcePrimKey()) %>" />
+				<portlet:param name="status" value="<%= String.valueOf(WorkflowConstants.STATUS_ANY) %>" />
+			</liferay-portlet:renderURL>
+
+			<liferay-ui:icon
+				icon="pencil"
+				label="<%= true %>"
+				markupView="lexicon"
+				message="edit"
+				method="get"
+				url="<%= editURL %>"
+			/>
+		</c:if>
+
+		<c:if test="<%= (AdminPermission.contains(permissionChecker, scopeGroupId, KBActionKeys.ADD_KB_ARTICLE) && rootPortletId.equals(KBPortletKeys.KNOWLEDGE_BASE_ADMIN)) || (DisplayPermission.contains(permissionChecker, scopeGroupId, KBActionKeys.ADD_KB_ARTICLE) && DisplayPermission.contains(permissionChecker, scopeGroupId, KBActionKeys.ADMINISTRATOR) && rootPortletId.equals(KBPortletKeys.KNOWLEDGE_BASE_DISPLAY)) %>">
+			<liferay-portlet:renderURL var="addKBArticleURL">
+				<portlet:param name="mvcPath" value='<%= templatePath + "edit_article.jsp" %>' />
+				<portlet:param name="redirect" value="<%= redirect %>" />
+				<portlet:param name="parentResourceClassNameId" value="<%= String.valueOf(kbArticle.getClassNameId()) %>" />
+				<portlet:param name="parentResourcePrimKey" value="<%= String.valueOf(kbArticle.getResourcePrimKey()) %>" />
+			</liferay-portlet:renderURL>
+
+			<liferay-ui:icon
+				icon="plus"
+				label="<%= true %>"
+				markupView="lexicon"
+				message="add-child-article"
+				method="get"
+				url="<%= addKBArticleURL %>"
+			/>
+		</c:if>
+
+		<c:if test="<%= kbArticle.isRoot() && KBArticlePermission.contains(permissionChecker, kbArticle, KBActionKeys.PERMISSIONS) %>">
+			<liferay-security:permissionsURL
+				modelResource="<%= KBArticle.class.getName() %>"
+				modelResourceDescription="<%= kbArticle.getTitle() %>"
+				resourcePrimKey="<%= String.valueOf(kbArticle.getResourcePrimKey()) %>"
+				var="permissionsURL"
+				windowState="<%= LiferayWindowState.POP_UP.toString() %>"
+			/>
+
+			<liferay-ui:icon
+				icon="lock"
+				label="<%= true %>"
+				markupView="lexicon"
+				message="permissions"
+				method="get"
+				url="<%= permissionsURL %>"
+				useDialog="<%= true %>"
+			/>
+		</c:if>
+
+		<c:if test="<%= KBArticlePermission.contains(permissionChecker, kbArticle, KBActionKeys.MOVE_KB_ARTICLE) %>">
+			<liferay-portlet:renderURL var="moveKBArticleURL">
+				<portlet:param name="mvcPath" value='<%= templatePath + "move_object.jsp" %>' />
+				<portlet:param name="redirect" value="<%= redirect %>" />
+				<portlet:param name="resourceClassNameId" value="<%= String.valueOf(kbArticle.getClassNameId()) %>" />
+				<portlet:param name="resourcePrimKey" value="<%= String.valueOf(kbArticle.getResourcePrimKey()) %>" />
+				<portlet:param name="parentResourceClassNameId" value="<%= String.valueOf(kbArticle.getParentResourceClassNameId()) %>" />
+				<portlet:param name="parentResourcePrimKey" value="<%= String.valueOf(kbArticle.getParentResourcePrimKey()) %>" />
+			</liferay-portlet:renderURL>
+
+			<liferay-ui:icon
+				icon="move"
+				label="<%= true %>"
+				markupView="lexicon"
+				message="move"
+				method="get"
+				url="<%= moveKBArticleURL %>"
+			/>
+		</c:if>
+
+		<c:if test="<%= KBArticlePermission.contains(permissionChecker, kbArticle, KBActionKeys.DELETE) %>">
+			<liferay-portlet:renderURL var="homeURL">
+				<portlet:param name="mvcPath" value='<%= templatePath + "view.jsp" %>' />
+			</liferay-portlet:renderURL>
+
+			<liferay-portlet:actionURL name="deleteKBArticle" var="deleteURL">
+				<portlet:param name="mvcPath" value='<%= templatePath + "view_article.jsp" %>' />
+				<portlet:param name="redirect" value="<%= homeURL %>" />
+				<portlet:param name="resourceClassNameId" value="<%= String.valueOf(kbArticle.getClassNameId()) %>" />
+				<portlet:param name="resourcePrimKey" value="<%= String.valueOf(kbArticle.getResourcePrimKey()) %>" />
+				<portlet:param name="status" value="<%= String.valueOf(status) %>" />
+			</liferay-portlet:actionURL>
+
+			<liferay-ui:icon-delete
+				label="<%= true %>"
+				showIcon="<%= true %>"
+				url="<%= deleteURL %>"
 			/>
 		</c:if>
 	</c:if>

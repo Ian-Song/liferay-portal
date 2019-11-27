@@ -1,10 +1,10 @@
 StringBundler query = null;
 
 if (orderByComparator != null) {
-	query = new StringBundler(${finderColsList?size + 2} + (orderByComparator.getOrderByFields().length * 2));
+	query = new StringBundler(${entityColumns?size + 2} + (orderByComparator.getOrderByFields().length * 2));
 }
 else {
-	query = new StringBundler(${finderColsList?size + 2});
+	query = new StringBundler(${entityColumns?size + 2});
 }
 
 query.append(_SQL_SELECT_${entity.alias?upper_case}_WHERE);
@@ -14,12 +14,6 @@ query.append(_SQL_SELECT_${entity.alias?upper_case}_WHERE);
 if (orderByComparator != null) {
 	appendOrderByComparator(query, _ORDER_BY_ENTITY_ALIAS, orderByComparator);
 }
-else
-
-<#if checkPagination>
-	if (pagination)
-</#if>
-
-{
+else {
 	query.append(${entity.name}ModelImpl.ORDER_BY_JPQL);
 }

@@ -65,7 +65,7 @@ double interestPaid = totalPaid - loanAmount;
 					<aui:input name="years" value="<%= years %>" />
 
 					<aui:button-row>
-						<aui:button cssClass="btn-lg" type="submit" value="calculate" />
+						<aui:button type="submit" value="calculate" />
 					</aui:button-row>
 				</aui:field-wrapper>
 			</aui:fieldset>
@@ -91,28 +91,22 @@ double interestPaid = totalPaid - loanAmount;
 
 	parentNode.plug(A.Plugin.ParseContent);
 
-	form.on(
-		'submit',
-		function(event) {
-			var uri = form.getAttribute('action');
+	form.on('submit', function(event) {
+		var uri = form.getAttribute('action');
 
-			A.io.request(
-				uri,
-				{
-					form: {
-						id: form
-					},
-					on: {
-						success: function(event, id, obj) {
-							var responseData = this.get('responseData');
+		A.io.request(uri, {
+			form: {
+				id: form
+			},
+			on: {
+				success: function(event, id, obj) {
+					var responseData = this.get('responseData');
 
-							parentNode.setContent(responseData);
-						}
-					}
+					parentNode.setContent(responseData);
 				}
-			);
+			}
+		});
 
-			event.halt();
-		}
-	);
+		event.halt();
+	});
 </aui:script>

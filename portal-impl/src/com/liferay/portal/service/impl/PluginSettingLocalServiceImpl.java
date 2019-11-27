@@ -14,6 +14,7 @@
 
 package com.liferay.portal.service.impl;
 
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
@@ -22,7 +23,6 @@ import com.liferay.portal.kernel.model.PluginSetting;
 import com.liferay.portal.kernel.model.User;
 import com.liferay.portal.kernel.security.auth.PrincipalException;
 import com.liferay.portal.kernel.util.PortalUtil;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.model.impl.PluginSettingImpl;
 import com.liferay.portal.service.base.PluginSettingLocalServiceBaseImpl;
 
@@ -44,12 +44,12 @@ public class PluginSettingLocalServiceImpl
 
 	@Override
 	public PluginSetting getDefaultPluginSetting() {
-		PluginSettingImpl pluginSetting = new PluginSettingImpl();
+		PluginSettingImpl pluginSettingImpl = new PluginSettingImpl();
 
-		pluginSetting.setRoles(StringPool.BLANK);
-		pluginSetting.setActive(true);
+		pluginSettingImpl.setRoles(StringPool.BLANK);
+		pluginSettingImpl.setActive(true);
 
-		return pluginSetting;
+		return pluginSettingImpl;
 	}
 
 	@Override
@@ -98,9 +98,8 @@ public class PluginSettingLocalServiceImpl
 			if (!pluginSetting.hasPermission(userId)) {
 				return false;
 			}
-			else {
-				return true;
-			}
+
+			return true;
 		}
 		catch (Exception e) {
 			if (_log.isWarnEnabled()) {

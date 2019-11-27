@@ -16,7 +16,6 @@ package com.liferay.portal.kernel.messaging;
 
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
-import com.liferay.portal.kernel.messaging.sender.SingleDestinationMessageSender;
 
 /**
  * @author Michael C. Han
@@ -43,21 +42,23 @@ public abstract class BaseMessageStatusMessageListener
 		finally {
 			messageStatus.stopTimer();
 
-			_statusSender.send(messageStatus);
-		}
-	}
+			message = new Message();
 
-	public void setStatusSender(SingleDestinationMessageSender statusSender) {
-		_statusSender = statusSender;
+			message.setPayload(messageStatus);
+
+			Destination destination = getDestination();
+
+			destination.send(message);
+		}
 	}
 
 	protected abstract void doReceive(
 			Message message, MessageStatus messageStatus)
 		throws Exception;
 
+	protected abstract Destination getDestination();
+
 	private static final Log _log = LogFactoryUtil.getLog(
 		BaseMessageStatusMessageListener.class);
-
-	private SingleDestinationMessageSender _statusSender;
 
 }

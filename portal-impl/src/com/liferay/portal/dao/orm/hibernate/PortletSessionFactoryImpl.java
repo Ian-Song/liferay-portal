@@ -14,113 +14,19 @@
 
 package com.liferay.portal.dao.orm.hibernate;
 
-import com.liferay.portal.kernel.dao.jdbc.CurrentConnectionUtil;
-import com.liferay.portal.kernel.dao.orm.ORMException;
 import com.liferay.portal.kernel.dao.orm.Session;
-import com.liferay.portal.kernel.log.Log;
-import com.liferay.portal.kernel.log.LogFactoryUtil;
-import com.liferay.portal.security.lang.DoPrivilegedUtil;
-import com.liferay.portal.spring.hibernate.PortletHibernateConfiguration;
-import com.liferay.portal.util.PropsValues;
-
-import java.sql.Connection;
-
-import javax.sql.DataSource;
-
-import org.hibernate.SessionFactory;
 
 /**
- * @author Shuyang Zhou
- * @author Alexander Chow
+ * @author     Shuyang Zhou
+ * @author     Alexander Chow
+ * @deprecated As of Judson (7.1.x), with no direct replacement
  */
+@Deprecated
 public class PortletSessionFactoryImpl extends SessionFactoryImpl {
 
 	@Override
-	public void closeSession(Session session) throws ORMException {
-		if (session != null) {
-			session.flush();
-
-			if (!PropsValues.SPRING_HIBERNATE_SESSION_DELEGATED) {
-				session.close();
-			}
-		}
-	}
-
-	@Override
-	public Session openSession() throws ORMException {
-		SessionFactory sessionFactory = getSessionFactory();
-
-		org.hibernate.Session session = null;
-
-		if (PropsValues.SPRING_HIBERNATE_SESSION_DELEGATED) {
-			Connection connection = CurrentConnectionUtil.getConnection(
-				getDataSource());
-
-			if (connection == null) {
-				session = sessionFactory.getCurrentSession();
-			}
-			else {
-				session = sessionFactory.openSession(connection);
-			}
-		}
-		else {
-			session = sessionFactory.openSession();
-		}
-
-		if (_log.isDebugEnabled()) {
-			org.hibernate.impl.SessionImpl sessionImpl =
-				(org.hibernate.impl.SessionImpl)session;
-
-			_log.debug(
-				"Session is using connection release mode " +
-					sessionImpl.getConnectionReleaseMode());
-		}
-
-		return wrapSession(session);
-	}
-
-	public void setDataSource(DataSource dataSource) {
-		_dataSource = dataSource;
-	}
-
-	protected SessionFactory createSessionFactory(DataSource dataSource) {
-		PortletHibernateConfiguration portletHibernateConfiguration =
-			new PortletHibernateConfiguration(
-				getSessionFactoryClassLoader(), dataSource);
-
-		portletHibernateConfiguration.setDataSource(dataSource);
-
-		SessionFactory sessionFactory = null;
-
-		try {
-			sessionFactory =
-				portletHibernateConfiguration.buildSessionFactory();
-		}
-		catch (Exception e) {
-			_log.error(e, e);
-
-			return null;
-		}
-
-		return sessionFactory;
-	}
-
-	protected DataSource getDataSource() {
-		return _dataSource;
-	}
-
-	protected SessionFactory getSessionFactory() {
-		return getSessionFactoryImplementor();
-	}
-
-	@Override
 	protected Session wrapSession(org.hibernate.Session session) {
-		return DoPrivilegedUtil.wrapWhenActive(super.wrapSession(session));
+		return super.wrapSession(session);
 	}
-
-	private static final Log _log = LogFactoryUtil.getLog(
-		PortletSessionFactoryImpl.class);
-
-	private DataSource _dataSource;
 
 }

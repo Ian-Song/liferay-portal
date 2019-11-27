@@ -16,6 +16,7 @@ package com.liferay.portlet.exportimport.service.impl;
 
 import com.liferay.exportimport.kernel.configuration.ExportImportConfigurationConstants;
 import com.liferay.exportimport.kernel.model.ExportImportConfiguration;
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.exception.PortalException;
 import com.liferay.portal.kernel.json.JSONFactoryUtil;
 import com.liferay.portal.kernel.model.SystemEventConstants;
@@ -35,8 +36,8 @@ import com.liferay.portal.kernel.search.Sort;
 import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.systemevent.SystemEvent;
 import com.liferay.portal.kernel.util.GetterUtil;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.OrderByComparator;
-import com.liferay.portal.kernel.util.StringPool;
 import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.workflow.WorkflowConstants;
 import com.liferay.portlet.exportimport.service.base.ExportImportConfigurationLocalServiceBaseImpl;
@@ -48,7 +49,6 @@ import java.io.Serializable;
 
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -151,10 +151,6 @@ public class ExportImportConfigurationLocalServiceImpl
 		ExportImportConfiguration exportImportConfiguration) {
 
 		exportImportConfigurationPersistence.remove(exportImportConfiguration);
-
-		trashEntryLocalService.deleteEntry(
-			ExportImportConfiguration.class.getName(),
-			exportImportConfiguration.getExportImportConfigurationId());
 
 		return exportImportConfiguration;
 	}
@@ -470,13 +466,18 @@ public class ExportImportConfigurationLocalServiceImpl
 
 		searchContext.setAndSearch(andSearch);
 
-		Map<String, Serializable> attributes = new HashMap<>();
-
-		attributes.put(Field.STATUS, WorkflowConstants.STATUS_APPROVED);
-		attributes.put("description", description);
-		attributes.put("groupId", groupId);
-		attributes.put("name", name);
-		attributes.put("type", type);
+		Map<String, Serializable> attributes =
+			HashMapBuilder.<String, Serializable>put(
+				Field.STATUS, WorkflowConstants.STATUS_APPROVED
+			).put(
+				"description", description
+			).put(
+				"groupId", groupId
+			).put(
+				"name", name
+			).put(
+				"type", type
+			).build();
 
 		searchContext.setAttributes(attributes);
 

@@ -23,11 +23,11 @@ import com.liferay.portal.kernel.model.Company;
 import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.service.UserLocalService;
 import com.liferay.portal.kernel.util.GetterUtil;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.LocaleUtil;
 import com.liferay.portal.security.service.access.policy.model.SAPEntry;
 import com.liferay.portal.security.service.access.policy.service.SAPEntryLocalService;
 
-import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -41,10 +41,10 @@ import org.osgi.service.component.annotations.Reference;
 /**
  * @author Tomas Polesovsky
  */
-@Component(immediate = true)
+@Component(immediate = true, service = {})
 public class SyncSAPEntryActivator {
 
-	public static final Object[][] SAP_ENTRY_OBJECT_ARRAYS = new Object[][] {
+	public static final Object[][] SAP_ENTRY_OBJECT_ARRAYS = {
 		{
 			"SYNC_DEFAULT",
 			"com.liferay.sync.service.SyncDLObjectService#getSyncContext", true
@@ -62,10 +62,6 @@ public class SyncSAPEntryActivator {
 	protected void addSAPEntry(long companyId) throws PortalException {
 		for (Object[] sapEntryObjectArray : SAP_ENTRY_OBJECT_ARRAYS) {
 			String name = String.valueOf(sapEntryObjectArray[0]);
-			String allowedServiceSignatures = String.valueOf(
-				sapEntryObjectArray[1]);
-			boolean defaultSAPEntry = GetterUtil.getBoolean(
-				sapEntryObjectArray[2]);
 
 			SAPEntry sapEntry = _sapEntryLocalService.fetchSAPEntry(
 				companyId, name);
@@ -74,9 +70,14 @@ public class SyncSAPEntryActivator {
 				continue;
 			}
 
-			Map<Locale, String> map = new HashMap<>();
+			String allowedServiceSignatures = String.valueOf(
+				sapEntryObjectArray[1]);
+			boolean defaultSAPEntry = GetterUtil.getBoolean(
+				sapEntryObjectArray[2]);
 
-			map.put(LocaleUtil.getDefault(), name);
+			Map<Locale, String> map = HashMapBuilder.put(
+				LocaleUtil.getDefault(), name
+			).build();
 
 			_sapEntryLocalService.addSAPEntry(
 				_userLocalService.getDefaultUserId(companyId),
@@ -113,7 +114,7 @@ public class SyncSAPEntryActivator {
 			}
 			catch (PortalException pe) {
 				_log.error(
-					"Unable to add SAP entry for company " +
+					"Unable to add service access policy entry for company " +
 						company.getCompanyId(),
 					pe);
 			}

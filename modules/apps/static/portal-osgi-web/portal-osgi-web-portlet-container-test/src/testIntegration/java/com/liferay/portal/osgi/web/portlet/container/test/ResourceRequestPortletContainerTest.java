@@ -15,17 +15,17 @@
 package com.liferay.portal.osgi.web.portlet.container.test;
 
 import com.liferay.arquillian.extension.junit.bridge.junit.Arquillian;
+import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.portlet.PortletURLFactoryUtil;
 import com.liferay.portal.kernel.test.rule.AggregateTestRule;
 import com.liferay.portal.kernel.util.HashMapDictionary;
 import com.liferay.portal.kernel.util.HttpUtil;
 import com.liferay.portal.kernel.util.MapUtil;
+import com.liferay.portal.kernel.util.URLCodec;
+import com.liferay.portal.osgi.web.portlet.container.test.util.PortletContainerTestUtil;
 import com.liferay.portal.test.log.CaptureAppender;
 import com.liferay.portal.test.log.Log4JLoggerTestUtil;
 import com.liferay.portal.test.rule.LiferayIntegrationTestRule;
-import com.liferay.portal.util.test.PortletContainerTestUtil;
-import com.liferay.portal.util.test.PortletContainerTestUtil.Response;
-import com.liferay.portlet.PortletURLImpl;
 import com.liferay.portlet.SecurityPortletContainerWrapper;
 
 import java.io.IOException;
@@ -75,21 +75,24 @@ public class ResourceRequestPortletContainerTest
 
 		String layoutURL = layout.getRegularURL(httpServletRequest);
 
-		String url =
-			layoutURL +
-				"?p_p_id='\"><script>alert(1)</script>&p_p_lifecycle=2&";
+		String url = StringBundler.concat(
+			layoutURL, "?p_p_id=",
+			URLCodec.encodeURL("'\"><script>alert(1)</script>"),
+			"&p_p_lifecycle=2&");
 
 		try (CaptureAppender captureAppender =
 				Log4JLoggerTestUtil.configureLog4JLogger(
 					SecurityPortletContainerWrapper.class.getName(),
 					Level.WARN)) {
 
-			Response response = PortletContainerTestUtil.request(url);
+			PortletContainerTestUtil.Response response =
+				PortletContainerTestUtil.request(url);
 
 			List<LoggingEvent> loggingEvents =
 				captureAppender.getLoggingEvents();
 
-			Assert.assertEquals(2, loggingEvents.size());
+			Assert.assertEquals(
+				loggingEvents.toString(), 2, loggingEvents.size());
 
 			LoggingEvent loggingEvent = loggingEvents.get(0);
 
@@ -100,10 +103,13 @@ public class ResourceRequestPortletContainerTest
 			loggingEvent = loggingEvents.get(1);
 
 			Assert.assertEquals(
-				"Reject serveResource for " + layoutURL +
-					" on '\"><script>alert(1)</script>",
+				StringBundler.concat(
+					"User 0 is not allowed to serve resource for ", layoutURL,
+					" on '\"><script>alert(1)</script>: Invalid portlet ID ",
+					"'\"><script>alert(1)</script>"),
 				loggingEvent.getMessage());
-			Assert.assertEquals(400, response.getCode());
+
+			Assert.assertEquals(403, response.getCode());
 		}
 	}
 
@@ -160,19 +166,19 @@ public class ResourceRequestPortletContainerTest
 		HttpServletRequest httpServletRequest =
 			PortletContainerTestUtil.getHttpServletRequest(group, layout);
 
-		PortletURL portletURL = new PortletURLImpl(
+		PortletURL portletURL = PortletURLFactoryUtil.create(
 			httpServletRequest, TEST_PORTLET_ID, layout.getPlid(),
 			PortletRequest.RESOURCE_PHASE);
 
-		Response response = PortletContainerTestUtil.request(
-			portletURL.toString());
+		PortletContainerTestUtil.Response response =
+			PortletContainerTestUtil.request(portletURL.toString());
 
 		testTargetPortlet.reset();
 
 		// Make a resource request to the target portlet using the portlet
 		// authentication token
 
-		portletURL = new PortletURLImpl(
+		portletURL = PortletURLFactoryUtil.create(
 			httpServletRequest, testTargetPortletId, layout.getPlid(),
 			PortletRequest.RESOURCE_PHASE);
 
@@ -186,6 +192,7 @@ public class ResourceRequestPortletContainerTest
 			url, Collections.singletonMap("Cookie", response.getCookies()));
 
 		Assert.assertEquals(200, response.getCode());
+
 		Assert.assertTrue(testTargetPortlet.isCalledServeResource());
 	}
 
@@ -198,14 +205,15 @@ public class ResourceRequestPortletContainerTest
 		HttpServletRequest httpServletRequest =
 			PortletContainerTestUtil.getHttpServletRequest(group, layout);
 
-		PortletURL portletURL = new PortletURLImpl(
+		PortletURL portletURL = PortletURLFactoryUtil.create(
 			httpServletRequest, TEST_PORTLET_ID, layout.getPlid(),
 			PortletRequest.RESOURCE_PHASE);
 
-		Response response = PortletContainerTestUtil.request(
-			portletURL.toString());
+		PortletContainerTestUtil.Response response =
+			PortletContainerTestUtil.request(portletURL.toString());
 
 		Assert.assertEquals(200, response.getCode());
+
 		Assert.assertTrue(testPortlet.isCalledServeResource());
 	}
 
@@ -237,7 +245,7 @@ public class ResourceRequestPortletContainerTest
 		HttpServletRequest httpServletRequest =
 			PortletContainerTestUtil.getHttpServletRequest(group, layout);
 
-		PortletURL portletURL = new PortletURLImpl(
+		PortletURL portletURL = PortletURLFactoryUtil.create(
 			httpServletRequest, TEST_PORTLET_ID, layout.getPlid(),
 			PortletRequest.RESOURCE_PHASE);
 
@@ -250,10 +258,11 @@ public class ResourceRequestPortletContainerTest
 
 		portletURL.setParameter("testRuntimePortletId", testRuntimePortletId);
 
-		Response response = PortletContainerTestUtil.request(
-			portletURL.toString());
+		PortletContainerTestUtil.Response response =
+			PortletContainerTestUtil.request(portletURL.toString());
 
 		Assert.assertEquals(200, response.getCode());
+
 		Assert.assertTrue(testRuntimePortlet.isCalledRender());
 	}
 

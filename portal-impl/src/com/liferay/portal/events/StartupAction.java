@@ -14,6 +14,8 @@
 
 package com.liferay.portal.events;
 
+import com.liferay.document.library.kernel.service.DLFileEntryTypeLocalServiceUtil;
+import com.liferay.petra.executor.PortalExecutorManager;
 import com.liferay.portal.fabric.server.FabricServerUtil;
 import com.liferay.portal.jericho.CachedLoggerProvider;
 import com.liferay.portal.kernel.dao.db.DB;
@@ -21,7 +23,6 @@ import com.liferay.portal.kernel.dao.db.DBManagerUtil;
 import com.liferay.portal.kernel.dao.db.DBType;
 import com.liferay.portal.kernel.events.ActionException;
 import com.liferay.portal.kernel.events.SimpleAction;
-import com.liferay.portal.kernel.executor.PortalExecutorManager;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
 import com.liferay.portal.kernel.messaging.MessageBus;
@@ -32,28 +33,21 @@ import com.liferay.portal.kernel.nio.intraband.mailbox.MailboxDatagramReceiveHan
 import com.liferay.portal.kernel.nio.intraband.messaging.MessageDatagramReceiveHandler;
 import com.liferay.portal.kernel.nio.intraband.proxy.IntrabandProxyDatagramReceiveHandler;
 import com.liferay.portal.kernel.nio.intraband.rpc.RPCDatagramReceiveHandler;
-import com.liferay.portal.kernel.patcher.PatcherUtil;
 import com.liferay.portal.kernel.resiliency.mpi.MPIHelperUtil;
 import com.liferay.portal.kernel.resiliency.spi.agent.annotation.Direction;
 import com.liferay.portal.kernel.resiliency.spi.agent.annotation.DistributedRegistry;
 import com.liferay.portal.kernel.resiliency.spi.agent.annotation.MatchType;
-import com.liferay.portal.kernel.search.IndexerRegistry;
-import com.liferay.portal.kernel.search.IndexerRegistryUtil;
 import com.liferay.portal.kernel.service.ClassNameLocalServiceUtil;
 import com.liferay.portal.kernel.service.ResourceActionLocalServiceUtil;
 import com.liferay.portal.kernel.util.BasePortalLifecycle;
 import com.liferay.portal.kernel.util.GetterUtil;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.PortalLifecycle;
 import com.liferay.portal.kernel.util.PortalLifecycleUtil;
 import com.liferay.portal.kernel.util.ReleaseInfo;
-import com.liferay.portal.kernel.util.StringPool;
-import com.liferay.portal.kernel.util.StringUtil;
-import com.liferay.portal.kernel.util.Validator;
 import com.liferay.portal.kernel.util.WebKeys;
-import com.liferay.portal.plugin.PluginPackageIndexer;
 import com.liferay.portal.tools.DBUpgrader;
 import com.liferay.portal.util.PropsValues;
-import com.liferay.portlet.messageboards.util.MBMessageIndexer;
 import com.liferay.registry.Registry;
 import com.liferay.registry.RegistryUtil;
 import com.liferay.registry.ServiceRegistration;
@@ -63,14 +57,12 @@ import com.liferay.taglib.servlet.JspFactorySwapper;
 
 import java.io.InputStream;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import javax.portlet.MimeResponse;
 import javax.portlet.PortletRequest;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.struts.tiles.taglib.ComponentConstants;
 
 /**
  * @author Brian Wing Shun Chan
@@ -108,71 +100,28 @@ public class StartupAction extends SimpleAction {
 
 		System.out.println("Starting " + ReleaseInfo.getReleaseInfo() + "\n");
 
-		// Installed patches
-
-		if (_log.isInfoEnabled() && !PatcherUtil.hasInconsistentPatchLevels()) {
-			String installedPatches = StringUtil.merge(
-				PatcherUtil.getInstalledPatches(), StringPool.COMMA_AND_SPACE);
-
-			if (Validator.isNull(installedPatches)) {
-				_log.info("There are no patches installed");
-			}
-			else {
-				_log.info(
-					"The following patches are installed: " + installedPatches);
-			}
-		}
+		StartupHelperUtil.printPatchLevel();
 
 		// Portal resiliency
 
-		ServiceDependencyManager portalResiliencyServiceDependencyManager =
-			new ServiceDependencyManager();
+		if (PropsValues.PORTAL_RESILIENCY_ENABLED) {
+			ServiceDependencyManager portalResiliencyServiceDependencyManager =
+				new ServiceDependencyManager();
 
-		portalResiliencyServiceDependencyManager.addServiceDependencyListener(
-			new PortalResiliencyServiceDependencyLister());
+			portalResiliencyServiceDependencyManager.
+				addServiceDependencyListener(
+					new PortalResiliencyServiceDependencyLister());
 
-		portalResiliencyServiceDependencyManager.registerDependencies(
-			MessageBus.class, PortalExecutorManager.class);
-
-		// Shutdown hook
-
-		if (_log.isDebugEnabled()) {
-			_log.debug("Add shutdown hook");
+			portalResiliencyServiceDependencyManager.registerDependencies(
+				MessageBus.class, PortalExecutorManager.class);
 		}
-
-		Runtime runtime = Runtime.getRuntime();
-
-		runtime.addShutdownHook(new Thread(new ShutdownHook()));
-
-		// Indexers
-
-		ServiceDependencyManager indexerRegistryServiceDependencyManager =
-			new ServiceDependencyManager();
-
-		indexerRegistryServiceDependencyManager.addServiceDependencyListener(
-			new ServiceDependencyListener() {
-
-				@Override
-				public void dependenciesFulfilled() {
-					IndexerRegistryUtil.register(new MBMessageIndexer());
-					IndexerRegistryUtil.register(new PluginPackageIndexer());
-				}
-
-				@Override
-				public void destroy() {
-				}
-
-			});
-
-		indexerRegistryServiceDependencyManager.registerDependencies(
-			IndexerRegistry.class);
 
 		// MySQL version
 
 		DB db = DBManagerUtil.getDB();
 
 		if ((db.getDBType() == DBType.MYSQL) &&
-			GetterUtil.getFloat(db.getVersionString()) < 5.6F) {
+			(GetterUtil.getFloat(db.getVersionString()) < 5.6F)) {
 
 			_log.error(
 				"Please upgrade to at least MySQL 5.6.4. The portal no " +
@@ -181,27 +130,29 @@ public class StartupAction extends SimpleAction {
 			System.exit(1);
 		}
 
-		// Check required build number
+		// Check required schema version
 
-		if (_log.isDebugEnabled()) {
-			_log.debug("Check required build number");
-		}
+		StartupHelperUtil.verifyRequiredSchemaVersion();
 
-		DBUpgrader.checkRequiredBuildNumber(ReleaseInfo.getParentBuildNumber());
+		DLFileEntryTypeLocalServiceUtil.getBasicDocumentDLFileEntryType();
 
 		Registry registry = RegistryUtil.getRegistry();
 
-		Map<String, Object> properties = new HashMap<>();
-
-		properties.put("module.service.lifecycle", "database.initialized");
-		properties.put("service.vendor", ReleaseInfo.getVendor());
-		properties.put("service.version", ReleaseInfo.getVersion());
+		Map<String, Object> properties = HashMapBuilder.<String, Object>put(
+			"module.service.lifecycle", "database.initialized"
+		).put(
+			"service.vendor", ReleaseInfo.getVendor()
+		).put(
+			"service.version", ReleaseInfo.getVersion()
+		).build();
 
 		final ServiceRegistration<ModuleServiceLifecycle>
 			moduleServiceLifecycleServiceRegistration =
 				registry.registerService(
 					ModuleServiceLifecycle.class,
-					new ModuleServiceLifecycle() {}, properties);
+					new ModuleServiceLifecycle() {
+					},
+					properties);
 
 		PortalLifecycleUtil.register(
 			new BasePortalLifecycle() {
@@ -258,14 +209,7 @@ public class StartupAction extends SimpleAction {
 
 		@Override
 		public void dependenciesFulfilled() {
-			Registry registry = RegistryUtil.getRegistry();
-
-			MessageBus messageBus = registry.getService(MessageBus.class);
-
 			try {
-				DistributedRegistry.registerDistributed(
-					ComponentConstants.COMPONENT_CONTEXT, Direction.DUPLEX,
-					MatchType.POSTFIX);
 				DistributedRegistry.registerDistributed(
 					MimeResponse.MARKUP_HEAD_ELEMENT, Direction.DUPLEX,
 					MatchType.EXACT);
@@ -282,7 +226,7 @@ public class StartupAction extends SimpleAction {
 
 				intraband.registerDatagramReceiveHandler(
 					SystemDataType.MESSAGE.getValue(),
-					new MessageDatagramReceiveHandler(messageBus));
+					new MessageDatagramReceiveHandler());
 
 				intraband.registerDatagramReceiveHandler(
 					SystemDataType.PROXY.getValue(),

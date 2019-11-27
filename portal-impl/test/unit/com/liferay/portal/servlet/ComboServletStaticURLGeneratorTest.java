@@ -14,6 +14,7 @@
 
 package com.liferay.portal.servlet;
 
+import com.liferay.petra.string.StringBundler;
 import com.liferay.portal.kernel.model.Portlet;
 import com.liferay.portal.kernel.servlet.ServletContextPool;
 import com.liferay.portal.kernel.servlet.ServletContextUtil;
@@ -21,7 +22,6 @@ import com.liferay.portal.kernel.util.HtmlUtil;
 import com.liferay.portal.kernel.util.HttpUtil;
 import com.liferay.portal.kernel.util.PortalUtil;
 import com.liferay.portal.kernel.util.PortletKeys;
-import com.liferay.portal.kernel.util.PredicateFilter;
 import com.liferay.portal.kernel.util.SetUtil;
 import com.liferay.portal.model.impl.PortletAppImpl;
 import com.liferay.portal.model.impl.PortletImpl;
@@ -29,6 +29,8 @@ import com.liferay.portal.util.HtmlImpl;
 import com.liferay.portal.util.HttpImpl;
 import com.liferay.portal.util.PortalImpl;
 import com.liferay.portlet.PortletResourceAccessor;
+import com.liferay.registry.BasicRegistryImpl;
+import com.liferay.registry.RegistryUtil;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -50,6 +52,8 @@ public class ComboServletStaticURLGeneratorTest {
 
 	@Before
 	public void setUp() {
+		RegistryUtil.setRegistry(new BasicRegistryImpl());
+
 		HtmlUtil htmlUtil = new HtmlUtil();
 
 		htmlUtil.setHtml(new HtmlImpl());
@@ -198,7 +202,8 @@ public class ComboServletStaticURLGeneratorTest {
 
 		comboServletStaticURLGenerator.generate(_toList(portlet));
 
-		Assert.assertTrue(visitedURLs.contains("/css/main.css"));
+		Assert.assertTrue(
+			visitedURLs.toString(), visitedURLs.contains("/css/main.css"));
 	}
 
 	@Test
@@ -287,13 +292,13 @@ public class ComboServletStaticURLGeneratorTest {
 	}
 
 	@Test
-	public void testGenerateWithPredicateFilter() {
+	public void testGenerateWithPredicate() {
 		ComboServletStaticURLGenerator comboServletStaticURLGenerator =
 			new ComboServletStaticURLGenerator();
 
 		comboServletStaticURLGenerator.setPortletResourceAccessors(
 			PortletResourceAccessor.HEADER_PORTAL_CSS);
-		comboServletStaticURLGenerator.setPredicateFilter(PredicateFilter.NONE);
+		comboServletStaticURLGenerator.setPredicate(s -> false);
 		comboServletStaticURLGenerator.setURLPrefix(_URL_PREFIX);
 		comboServletStaticURLGenerator.setVisitedURLs(new HashSet<String>());
 
@@ -304,7 +309,7 @@ public class ComboServletStaticURLGeneratorTest {
 		List<String> urls = comboServletStaticURLGenerator.generate(
 			_toList(portlet));
 
-		Assert.assertTrue(urls.isEmpty());
+		Assert.assertTrue(urls.toString(), urls.isEmpty());
 	}
 
 	@Test
@@ -327,8 +332,9 @@ public class ComboServletStaticURLGeneratorTest {
 
 		assertURLs(
 			urls,
-			_URL_PREFIX + "&" + PortletKeys.PORTAL + ":%2Fcss%2Fmain.css&" +
-				PortletKeys.PORTAL + ":%2Fcss%2Fmore.css&t=0");
+			StringBundler.concat(
+				_URL_PREFIX, "&", PortletKeys.PORTAL, ":%2Fcss%2Fmain.css&",
+				PortletKeys.PORTAL, ":%2Fcss%2Fmore.css&t=0"));
 	}
 
 	@Test
@@ -360,32 +366,33 @@ public class ComboServletStaticURLGeneratorTest {
 	protected Portlet buildPortlet(
 		String contextName, String... portletResources) {
 
-		PortletImpl portlet = new PortletImpl();
+		PortletImpl portletImpl = new PortletImpl();
 
 		List<String> portletResourcesList = Arrays.asList(portletResources);
 
-		portlet.setFooterPortalCss(portletResourcesList);
-		portlet.setFooterPortalJavaScript(portletResourcesList);
-		portlet.setFooterPortletCss(portletResourcesList);
-		portlet.setFooterPortletJavaScript(portletResourcesList);
-		portlet.setHeaderPortalCss(portletResourcesList);
-		portlet.setHeaderPortalJavaScript(portletResourcesList);
-		portlet.setHeaderPortletCss(portletResourcesList);
-		portlet.setHeaderPortletJavaScript(portletResourcesList);
-		portlet.setPortletId(PortletKeys.PORTAL);
-		portlet.setPortletName(contextName);
+		portletImpl.setFooterPortalCss(portletResourcesList);
+		portletImpl.setFooterPortalJavaScript(portletResourcesList);
+		portletImpl.setFooterPortletCss(portletResourcesList);
+		portletImpl.setFooterPortletJavaScript(portletResourcesList);
+		portletImpl.setHeaderPortalCss(portletResourcesList);
+		portletImpl.setHeaderPortalJavaScript(portletResourcesList);
+		portletImpl.setHeaderPortletCss(portletResourcesList);
+		portletImpl.setHeaderPortletJavaScript(portletResourcesList);
 
-		PortletAppImpl portletApp = new PortletAppImpl(contextName);
+		portletImpl.setPortletId(PortletKeys.PORTAL);
+		portletImpl.setPortletName(contextName);
+
+		PortletAppImpl portletAppImpl = new PortletAppImpl(contextName);
 
 		ServletContext servletContext = new MockServletContext();
 
 		ServletContextPool.put(contextName, servletContext);
 
-		portletApp.setServletContext(servletContext);
+		portletAppImpl.setServletContext(servletContext);
 
-		portlet.setPortletApp(portletApp);
+		portletImpl.setPortletApp(portletAppImpl);
 
-		return portlet;
+		return portletImpl;
 	}
 
 	protected void setPortletTimestamp(

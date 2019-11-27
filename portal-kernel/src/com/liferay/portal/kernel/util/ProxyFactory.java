@@ -14,6 +14,7 @@
 
 package com.liferay.portal.kernel.util;
 
+import com.liferay.petra.string.StringPool;
 import com.liferay.portal.kernel.bean.ClassLoaderBeanHandler;
 import com.liferay.portal.kernel.log.Log;
 import com.liferay.portal.kernel.log.LogFactoryUtil;
@@ -33,7 +34,7 @@ public class ProxyFactory {
 
 	public static <T> T newDummyInstance(Class<T> interfaceClass) {
 		return (T)ProxyUtil.newProxyInstance(
-			interfaceClass.getClassLoader(), new Class[] {interfaceClass},
+			interfaceClass.getClassLoader(), new Class<?>[] {interfaceClass},
 			new DummyInvocationHandler<T>());
 	}
 
@@ -43,7 +44,7 @@ public class ProxyFactory {
 		throws Exception {
 
 		return newInstance(
-			classLoader, new Class[] {interfaceClass}, implClassName);
+			classLoader, new Class<?>[] {interfaceClass}, implClassName);
 	}
 
 	public static Object newInstance(
@@ -57,21 +58,6 @@ public class ProxyFactory {
 		return ProxyUtil.newProxyInstance(
 			classLoader, interfaceClasses,
 			new ClassLoaderBeanHandler(instance, classLoader));
-	}
-
-	public static <T> T newServiceTrackedInstance(Class<T> interfaceClass) {
-		return (T)ProxyUtil.newProxyInstance(
-			interfaceClass.getClassLoader(), new Class[] {interfaceClass},
-			new ServiceTrackedInvocationHandler<>(interfaceClass));
-	}
-
-	public static <T> T newServiceTrackedInstance(
-		Class<T> interfaceClass, String filterString) {
-
-		return (T)ProxyUtil.newProxyInstance(
-			interfaceClass.getClassLoader(), new Class[] {interfaceClass},
-			new ServiceTrackedInvocationHandler<>(
-				interfaceClass, filterString));
 	}
 
 	private static final Log _log = LogFactoryUtil.getLog(ProxyFactory.class);
@@ -132,8 +118,9 @@ public class ProxyFactory {
 
 			if (_log.isWarnEnabled()) {
 				_log.warn(
-					"Skipping " + method.getName() + " because " +
-						_interfaceClassName + " is not registered");
+					StringBundler.concat(
+						"Skipping ", method.getName(), " because ",
+						_interfaceClassName, " is not registered"));
 			}
 
 			Class<?> returnType = method.getReturnType();

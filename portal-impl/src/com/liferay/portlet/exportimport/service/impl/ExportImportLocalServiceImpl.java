@@ -19,6 +19,8 @@ import com.liferay.exportimport.kernel.background.task.BackgroundTaskExecutorNam
 import com.liferay.exportimport.kernel.controller.ExportController;
 import com.liferay.exportimport.kernel.controller.ExportImportControllerRegistryUtil;
 import com.liferay.exportimport.kernel.controller.ImportController;
+import com.liferay.exportimport.kernel.exception.ExportImportIOException;
+import com.liferay.exportimport.kernel.exception.ExportImportRuntimeException;
 import com.liferay.exportimport.kernel.exception.LARFileNameException;
 import com.liferay.exportimport.kernel.lar.MissingReferences;
 import com.liferay.exportimport.kernel.lar.PortletDataException;
@@ -32,6 +34,7 @@ import com.liferay.portal.kernel.model.Layout;
 import com.liferay.portal.kernel.model.Portlet;
 import com.liferay.portal.kernel.service.ServiceContext;
 import com.liferay.portal.kernel.util.FileUtil;
+import com.liferay.portal.kernel.util.HashMapBuilder;
 import com.liferay.portal.kernel.util.MapUtil;
 import com.liferay.portlet.exportimport.service.base.ExportImportLocalServiceBaseImpl;
 
@@ -40,7 +43,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -65,7 +67,12 @@ public class ExportImportLocalServiceImpl
 			throw pe;
 		}
 		catch (Exception e) {
-			throw new SystemException(e);
+			ExportImportRuntimeException eire =
+				new ExportImportRuntimeException(e.getLocalizedMessage(), e);
+
+			eire.setClassName(ExportImportLocalServiceImpl.class.getName());
+
+			throw eire;
 		}
 	}
 
@@ -78,11 +85,11 @@ public class ExportImportLocalServiceImpl
 			throw new LARFileNameException(exportImportConfiguration.getName());
 		}
 
-		Map<String, Serializable> taskContextMap = new HashMap<>();
-
-		taskContextMap.put(
-			"exportImportConfigurationId",
-			exportImportConfiguration.getExportImportConfigurationId());
+		Map<String, Serializable> taskContextMap =
+			HashMapBuilder.<String, Serializable>put(
+				"exportImportConfigurationId",
+				exportImportConfiguration.getExportImportConfigurationId()
+			).build();
 
 		BackgroundTask backgroundTask =
 			BackgroundTaskManagerUtil.addBackgroundTask(
@@ -100,12 +107,10 @@ public class ExportImportLocalServiceImpl
 			long userId, long exportImportConfigurationId)
 		throws PortalException {
 
-		ExportImportConfiguration exportImportConfiguration =
-			exportImportConfigurationLocalService.getExportImportConfiguration(
-				exportImportConfigurationId);
-
 		return exportLayoutsAsFileInBackground(
-			userId, exportImportConfiguration);
+			userId,
+			exportImportConfigurationLocalService.getExportImportConfiguration(
+				exportImportConfigurationId));
 	}
 
 	@Override
@@ -124,7 +129,12 @@ public class ExportImportLocalServiceImpl
 			throw pe;
 		}
 		catch (Exception e) {
-			throw new SystemException(e);
+			ExportImportRuntimeException eire =
+				new ExportImportRuntimeException(e.getLocalizedMessage(), e);
+
+			eire.setClassName(ExportImportLocalServiceImpl.class.getName());
+
+			throw eire;
 		}
 	}
 
@@ -133,20 +143,18 @@ public class ExportImportLocalServiceImpl
 			long userId, ExportImportConfiguration exportImportConfiguration)
 		throws PortalException {
 
-		Map<String, Serializable> settingsMap =
-			exportImportConfiguration.getSettingsMap();
-
-		String fileName = MapUtil.getString(settingsMap, "fileName");
+		String fileName = MapUtil.getString(
+			exportImportConfiguration.getSettingsMap(), "fileName");
 
 		if (!DLValidatorUtil.isValidName(fileName)) {
 			throw new LARFileNameException(fileName);
 		}
 
-		Map<String, Serializable> taskContextMap = new HashMap<>();
-
-		taskContextMap.put(
-			"exportImportConfigurationId",
-			exportImportConfiguration.getExportImportConfigurationId());
+		Map<String, Serializable> taskContextMap =
+			HashMapBuilder.<String, Serializable>put(
+				"exportImportConfigurationId",
+				exportImportConfiguration.getExportImportConfigurationId()
+			).build();
 
 		BackgroundTask backgroundTask =
 			BackgroundTaskManagerUtil.addBackgroundTask(
@@ -164,12 +172,10 @@ public class ExportImportLocalServiceImpl
 			long userId, long exportImportConfigurationId)
 		throws PortalException {
 
-		ExportImportConfiguration exportImportConfiguration =
-			exportImportConfigurationLocalService.getExportImportConfiguration(
-				exportImportConfigurationId);
-
 		return exportPortletInfoAsFileInBackground(
-			userId, exportImportConfiguration);
+			userId,
+			exportImportConfigurationLocalService.getExportImportConfiguration(
+				exportImportConfigurationId));
 	}
 
 	@Override
@@ -197,7 +203,12 @@ public class ExportImportLocalServiceImpl
 			throw se;
 		}
 		catch (Exception e) {
-			throw new SystemException(e);
+			ExportImportRuntimeException eire =
+				new ExportImportRuntimeException(e.getLocalizedMessage(), e);
+
+			eire.setClassName(ExportImportLocalServiceImpl.class.getName());
+
+			throw eire;
 		}
 	}
 
@@ -217,7 +228,18 @@ public class ExportImportLocalServiceImpl
 			importLayouts(exportImportConfiguration, file);
 		}
 		catch (IOException ioe) {
-			throw new SystemException(ioe);
+			ExportImportIOException eiioe = new ExportImportIOException(
+				ExportImportLocalServiceImpl.class.getName(), ioe);
+
+			if (file != null) {
+				eiioe.setFileName(file.getName());
+				eiioe.setType(ExportImportIOException.LAYOUT_IMPORT_FILE);
+			}
+			else {
+				eiioe.setType(ExportImportIOException.LAYOUT_IMPORT);
+			}
+
+			throw eiioe;
 		}
 		finally {
 			FileUtil.delete(file);
@@ -250,7 +272,12 @@ public class ExportImportLocalServiceImpl
 			throw se;
 		}
 		catch (Exception e) {
-			throw new SystemException(e);
+			ExportImportRuntimeException eire =
+				new ExportImportRuntimeException(e.getLocalizedMessage(), e);
+
+			eire.setClassName(ExportImportLocalServiceImpl.class.getName());
+
+			throw eire;
 		}
 	}
 
@@ -260,11 +287,11 @@ public class ExportImportLocalServiceImpl
 			File file)
 		throws PortalException {
 
-		Map<String, Serializable> taskContextMap = new HashMap<>();
-
-		taskContextMap.put(
-			"exportImportConfigurationId",
-			exportImportConfiguration.getExportImportConfigurationId());
+		Map<String, Serializable> taskContextMap =
+			HashMapBuilder.<String, Serializable>put(
+				"exportImportConfigurationId",
+				exportImportConfiguration.getExportImportConfigurationId()
+			).build();
 
 		BackgroundTask backgroundTask =
 			BackgroundTaskManagerUtil.addBackgroundTask(
@@ -296,7 +323,18 @@ public class ExportImportLocalServiceImpl
 				userId, exportImportConfiguration, file);
 		}
 		catch (IOException ioe) {
-			throw new SystemException(ioe);
+			ExportImportIOException eiioe = new ExportImportIOException(
+				ExportImportLocalServiceImpl.class.getName(), ioe);
+
+			if (file != null) {
+				eiioe.setFileName(file.getName());
+				eiioe.setType(ExportImportIOException.LAYOUT_IMPORT_FILE);
+			}
+			else {
+				eiioe.setType(ExportImportIOException.LAYOUT_IMPORT);
+			}
+
+			throw eiioe;
 		}
 		finally {
 			FileUtil.delete(file);
@@ -308,12 +346,11 @@ public class ExportImportLocalServiceImpl
 			long userId, long exportImportConfigurationId, File file)
 		throws PortalException {
 
-		ExportImportConfiguration exportImportConfiguration =
-			exportImportConfigurationLocalService.getExportImportConfiguration(
-				exportImportConfigurationId);
-
 		return importPortletInfoInBackground(
-			userId, exportImportConfiguration, file);
+			userId,
+			exportImportConfigurationLocalService.getExportImportConfiguration(
+				exportImportConfigurationId),
+			file);
 	}
 
 	@Override
@@ -322,12 +359,11 @@ public class ExportImportLocalServiceImpl
 			InputStream inputStream)
 		throws PortalException {
 
-		ExportImportConfiguration exportImportConfiguration =
-			exportImportConfigurationLocalService.getExportImportConfiguration(
-				exportImportConfigurationId);
-
 		return importLayoutsInBackground(
-			userId, exportImportConfiguration, inputStream);
+			userId,
+			exportImportConfigurationLocalService.getExportImportConfiguration(
+				exportImportConfigurationId),
+			inputStream);
 	}
 
 	@Override
@@ -356,7 +392,12 @@ public class ExportImportLocalServiceImpl
 			throw se;
 		}
 		catch (Exception e) {
-			throw new SystemException(e);
+			ExportImportRuntimeException eire =
+				new ExportImportRuntimeException(e.getLocalizedMessage(), e);
+
+			eire.setClassName(ExportImportLocalServiceImpl.class.getName());
+
+			throw eire;
 		}
 	}
 
@@ -398,7 +439,12 @@ public class ExportImportLocalServiceImpl
 			throw se;
 		}
 		catch (Exception e) {
-			throw new SystemException(e);
+			ExportImportRuntimeException eire =
+				new ExportImportRuntimeException(e.getLocalizedMessage(), e);
+
+			eire.setClassName(ExportImportLocalServiceImpl.class.getName());
+
+			throw eire;
 		}
 	}
 
@@ -418,7 +464,18 @@ public class ExportImportLocalServiceImpl
 			importPortletInfo(exportImportConfiguration, file);
 		}
 		catch (IOException ioe) {
-			throw new SystemException(ioe);
+			ExportImportIOException eiioe = new ExportImportIOException(
+				ExportImportLocalServiceImpl.class.getName(), ioe);
+
+			if (file != null) {
+				eiioe.setFileName(file.getName());
+				eiioe.setType(ExportImportIOException.PORTLET_IMPORT_FILE);
+			}
+			else {
+				eiioe.setType(ExportImportIOException.PORTLET_IMPORT);
+			}
+
+			throw eiioe;
 		}
 		finally {
 			FileUtil.delete(file);
@@ -431,11 +488,11 @@ public class ExportImportLocalServiceImpl
 			File file)
 		throws PortalException {
 
-		Map<String, Serializable> taskContextMap = new HashMap<>();
-
-		taskContextMap.put(
-			"exportImportConfigurationId",
-			exportImportConfiguration.getExportImportConfigurationId());
+		Map<String, Serializable> taskContextMap =
+			HashMapBuilder.<String, Serializable>put(
+				"exportImportConfigurationId",
+				exportImportConfiguration.getExportImportConfigurationId()
+			).build();
 
 		BackgroundTask backgroundTask =
 			BackgroundTaskManagerUtil.addBackgroundTask(
@@ -467,7 +524,18 @@ public class ExportImportLocalServiceImpl
 				userId, exportImportConfiguration, file);
 		}
 		catch (IOException ioe) {
-			throw new SystemException(ioe);
+			ExportImportIOException eiioe = new ExportImportIOException(
+				ExportImportLocalServiceImpl.class.getName(), ioe);
+
+			if (file != null) {
+				eiioe.setFileName(file.getName());
+				eiioe.setType(ExportImportIOException.PORTLET_IMPORT_FILE);
+			}
+			else {
+				eiioe.setType(ExportImportIOException.PORTLET_IMPORT);
+			}
+
+			throw eiioe;
 		}
 		finally {
 			FileUtil.delete(file);
@@ -479,12 +547,11 @@ public class ExportImportLocalServiceImpl
 			long userId, long exportImportConfigurationId, File file)
 		throws PortalException {
 
-		ExportImportConfiguration exportImportConfiguration =
-			exportImportConfigurationLocalService.getExportImportConfiguration(
-				exportImportConfigurationId);
-
 		return importPortletInfoInBackground(
-			userId, exportImportConfiguration, file);
+			userId,
+			exportImportConfigurationLocalService.getExportImportConfiguration(
+				exportImportConfigurationId),
+			file);
 	}
 
 	@Override
@@ -493,12 +560,11 @@ public class ExportImportLocalServiceImpl
 			InputStream inputStream)
 		throws PortalException {
 
-		ExportImportConfiguration exportImportConfiguration =
-			exportImportConfigurationLocalService.getExportImportConfiguration(
-				exportImportConfigurationId);
-
 		return importPortletInfoInBackground(
-			userId, exportImportConfiguration, inputStream);
+			userId,
+			exportImportConfigurationLocalService.getExportImportConfiguration(
+				exportImportConfigurationId),
+			inputStream);
 	}
 
 	@Override
@@ -527,7 +593,12 @@ public class ExportImportLocalServiceImpl
 			throw se;
 		}
 		catch (Exception e) {
-			throw new SystemException(e);
+			ExportImportRuntimeException eire =
+				new ExportImportRuntimeException(e.getLocalizedMessage(), e);
+
+			eire.setClassName(ExportImportLocalServiceImpl.class.getName());
+
+			throw eire;
 		}
 	}
 
@@ -547,7 +618,18 @@ public class ExportImportLocalServiceImpl
 			return validateImportLayoutsFile(exportImportConfiguration, file);
 		}
 		catch (IOException ioe) {
-			throw new SystemException(ioe);
+			ExportImportIOException eiioe = new ExportImportIOException(
+				ExportImportLocalServiceImpl.class.getName(), ioe);
+
+			if (file != null) {
+				eiioe.setFileName(file.getName());
+				eiioe.setType(ExportImportIOException.LAYOUT_VALIDATE_FILE);
+			}
+			else {
+				eiioe.setType(ExportImportIOException.LAYOUT_VALIDATE);
+			}
+
+			throw eiioe;
 		}
 		finally {
 			FileUtil.delete(file);
@@ -580,7 +662,12 @@ public class ExportImportLocalServiceImpl
 			throw se;
 		}
 		catch (Exception e) {
-			throw new SystemException(e);
+			ExportImportRuntimeException eire =
+				new ExportImportRuntimeException(e.getLocalizedMessage(), e);
+
+			eire.setClassName(ExportImportLocalServiceImpl.class.getName());
+
+			throw eire;
 		}
 	}
 
@@ -600,7 +687,18 @@ public class ExportImportLocalServiceImpl
 			return validateImportPortletInfo(exportImportConfiguration, file);
 		}
 		catch (IOException ioe) {
-			throw new SystemException(ioe);
+			ExportImportIOException eiioe = new ExportImportIOException(
+				ExportImportLocalServiceImpl.class.getName(), ioe);
+
+			if (file != null) {
+				eiioe.setFileName(file.getName());
+				eiioe.setType(ExportImportIOException.PORTLET_VALIDATE_FILE);
+			}
+			else {
+				eiioe.setType(ExportImportIOException.PORTLET_VALIDATE);
+			}
+
+			throw eiioe;
 		}
 		finally {
 			FileUtil.delete(file);

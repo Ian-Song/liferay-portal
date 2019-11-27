@@ -14,7 +14,7 @@
 
 package com.liferay.portal.kernel.security.ldap;
 
-import com.liferay.portal.kernel.util.ProxyFactory;
+import com.liferay.portal.kernel.util.ServiceProxyFactory;
 
 import java.util.Properties;
 
@@ -23,6 +23,10 @@ import java.util.Properties;
  */
 public class LDAPSettingsUtil {
 
+	/**
+	 * @deprecated As of Mueller (7.2.x), with no direct replacement
+	 */
+	@Deprecated
 	public static String getAuthSearchFilter(
 			long ldapServerId, long companyId, String emailAddress,
 			String screenName, String userId)
@@ -99,7 +103,8 @@ public class LDAPSettingsUtil {
 		return _ldapSettings.isPasswordPolicyEnabled(companyId);
 	}
 
-	private static final LDAPSettings _ldapSettings =
-		ProxyFactory.newServiceTrackedInstance(LDAPSettings.class);
+	private static volatile LDAPSettings _ldapSettings =
+		ServiceProxyFactory.newServiceTrackedInstance(
+			LDAPSettings.class, LDAPSettingsUtil.class, "_ldapSettings", false);
 
 }
